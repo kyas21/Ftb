@@ -1,0 +1,248 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+namespace ClassLibrary
+{
+    public class ComboBoxEdit
+    {
+        /*--------------------------------------*/
+        //Field
+        /*--------------------------------------*/
+        private string[] valItem;
+        private string[] dispItem;
+        private ComboBox cBox;
+
+        /*--------------------------------------*/
+        //Constructor
+        /*--------------------------------------*/
+        public ComboBoxEdit()
+        {
+        }
+
+        public ComboBoxEdit(ComboBox cBox)
+        {
+            this.cBox = cBox;
+        }
+
+        /*--------------------------------------*/
+        //Property
+        /*--------------------------------------*/
+        public string[] ValueItem
+        {
+            set { valItem = value; }
+            get { return valItem; }
+        }
+
+
+
+        public string[] DisplayItem
+        {
+            set { dispItem = value; }
+            get { return dispItem; }
+        }
+
+        /*--------------------------------------*/
+        // Method
+        /*--------------------------------------*/
+        public bool Basic()
+        {
+            DataTable dt = new DataTable();
+            dt.Columns.Add("VM", typeof(string));
+            dt.Columns.Add("DM", typeof(string));
+
+            if (valItem.Length != dispItem.Length)
+            {
+                for (int i = 0; i < dispItem.Length; i++) valItem[i] = i.ToString();
+            }
+
+            for (int i = 0; i < dispItem.Length; i++)
+            {
+                DataRow dr = dt.NewRow();
+                dr["VM"] = valItem[i];
+                dr["DM"] = dispItem[i];
+                dt.Rows.Add(dr);
+            }
+           
+            dt.AcceptChanges();
+            cBox.DataSource = dt;
+            cBox.ValueMember = "VM";      // 非表示
+            cBox.DisplayMember = "DM";    // 表示
+            cBox.SelectedIndex = 0;
+            cBox.DropDownStyle = ComboBoxStyle.DropDownList;
+            cBox.Text = "";
+
+            return true;
+        }
+
+
+
+        public bool Version(string table)
+        {
+            SqlHandling sh = new SqlHandling(table);
+            int maxVal = sh.MaxValue("VersionNo");
+            if (maxVal == 0)
+            {
+                valItem = new string[] { "0" };
+                dispItem = new string[] { "0" };
+            }
+            if (SetValueStep(maxVal) == false)
+            {
+                valItem = new string[] { "0" };
+                dispItem = new string[] { "0" };
+            }
+            return Basic();
+        }
+
+
+
+        public bool Version(string table, string param)
+        {
+            SqlHandling sh = new SqlHandling(table);
+            DataTable dt = sh.SelectAllData(param);
+            if (dt == null)
+            {
+                emptyComboBox();
+                return Basic();
+            }
+
+            DataRow dr;
+            valItem = new string[dt.Rows.Count];
+            dispItem = new string[dt.Rows.Count];
+
+            for (int i = 0; i < dt.Rows.Count; i++)
+            {
+                dr = dt.Rows[i];
+                valItem[i] = Convert.ToString(i);
+                dispItem[i] = Convert.ToString(dr["VersionNo"]);
+            }
+            return Basic();
+        }
+
+
+
+        public bool Sequence(string table, string item)
+        {
+            SqlHandling sh = new SqlHandling(table);
+            if (sh.MaxValue(item) == 0) emptyComboBox();
+            return Basic();
+        }
+
+
+
+        public bool TableData(string table, string vItem, string dItem)
+        {
+            SqlHandling sh = new SqlHandling(table);
+            DataTable dt = sh.SpecifiedData(vItem, dItem);
+            if (dt == null)
+            {
+                emptyComboBox();
+                return Basic();
+            }
+            DataRow dr;
+            valItem = new string[dt.Rows.Count];
+            dispItem = new string[dt.Rows.Count];
+
+            for (int i = 0; i < dt.Rows.Count; i++)
+            {
+                dr = dt.Rows[i];
+                valItem[i] = Convert.ToString(dr[vItem]);
+                dispItem[i] = Convert.ToString(dr[dItem]);
+            }
+            return Basic();
+        }
+
+
+
+
+        public bool TableData(string table, string vItem, string dItem, string wParam)
+        {
+            SqlHandling sh = new SqlHandling(table);
+            DataTable dt = sh.SpecifiedData(vItem, dItem, wParam);
+            if (dt == null)
+            {
+                emptyComboBox();
+                return Basic();
+            }
+            if (SetValueDt(dt, vItem, dItem) == false) return false;
+
+            return Basic();
+        }
+
+
+
+        public bool CommonData(string kind)
+        {
+            SqlHandling sh = new SqlHandling("M_Common");
+            DataTable dt = sh.SpecifiedData("ComSymbol", "ComData", " WHERE Kind = '" + kind + "'");
+            if (dt == null)
+            {
+                emptyComboBox();
+                return Basic();
+            }
+            //if (SetValueDt(dt, "CommonID", "ComData") == false) return false;
+            if (SetValueDt(dt) == false) return false;
+
+            return Basic();
+        }
+
+
+        public bool SetValueStep(int maxVal)
+        {
+            for (int i = 0; i < maxVal; i++)
+            {
+                valItem[i] = i.ToString();
+                dispItem[i] = i.ToString();
+            }
+            return true;
+        }
+
+
+
+        public bool SetValueDt(DataTable dt, string vItem, string dItem)
+        {
+            DataRow dr;
+            valItem = new string[dt.Rows.Count];
+            dispItem = new string[dt.Rows.Count];
+
+            for (int i = 0; i < dt.Rows.Count; i++)
+            {
+                dr = dt.Rows[i];
+                valItem[i] = Convert.ToString(dr[vItem]);
+                dispItem[i] = Convert.ToString(dr[dItem]);
+            }
+            return true;
+        }
+
+
+        public bool SetValueDt(DataTable dt)
+        {
+            DataRow dr;
+            valItem = new string[dt.Rows.Count];
+            dispItem = new string[dt.Rows.Count];
+
+            for (int i = 0; i < dt.Rows.Count; i++)
+            {
+                dr = dt.Rows[i];
+                //valItem[i] = Convert.ToString(dr["CommonID"]);
+                valItem[i] = Convert.ToString(dr["ComSymbol"]);
+                dispItem[i] = Convert.ToString(dr["ComData"]);
+            }
+            return true;
+        }
+
+
+        private void emptyComboBox()
+        {
+            valItem = new string[1];
+            dispItem = new string[1];
+            valItem[0] = "";
+            dispItem[0] = "";
+        }
+
+    }
+}

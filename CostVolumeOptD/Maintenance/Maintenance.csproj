@@ -1,0 +1,223 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{C62C46E5-7BBB-4C46-A6DB-18CD53DBB83D}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>Maintenance</RootNamespace>
+    <AssemblyName>Maintenance</AssemblyName>
+    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="ClosedXML, Version=0.80.0.0, Culture=neutral, PublicKeyToken=fd1eb21b62ae805b, processorArchitecture=MSIL">
+      <HintPath>..\packages\ClosedXML.0.80.1\lib\net40-client\ClosedXML.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="DocumentFormat.OpenXml, Version=2.5.5631.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\DocumentFormat.OpenXml.2.5\lib\DocumentFormat.OpenXml.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Transactions" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Deployment" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="FormClosingProc.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormClosingProc.Designer.cs">
+      <DependentUpon>FormClosingProc.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FormImpAuthority.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormImpAuthority.Designer.cs">
+      <DependentUpon>FormImpAuthority.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FormImpGenData.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormImpGenData.Designer.cs">
+      <DependentUpon>FormImpGenData.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FormImpLedger.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormImpLedger.designer.cs">
+      <DependentUpon>FormImpLedger.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FormImpMPartners.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormImpMPartners.Designer.cs">
+      <DependentUpon>FormImpMPartners.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FormImpMCalendar.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormImpMCalendar.Designer.cs">
+      <DependentUpon>FormImpMCalendar.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FormImpMCommon.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormImpMCommon.Designer.cs">
+      <DependentUpon>FormImpMCommon.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FormImpMCost.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormImpMCost.Designer.cs">
+      <DependentUpon>FormImpMCost.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FormImpMMembers.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormImpMMembers.Designer.cs">
+      <DependentUpon>FormImpMMembers.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FormImpMWorkItems.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormImpMWorkItems.Designer.cs">
+      <DependentUpon>FormImpMWorkItems.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FormImpMOffice.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormImpMOffice.Designer.cs">
+      <DependentUpon>FormImpMOffice.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FormImpTaskData.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormImpTaskData.Designer.cs">
+      <DependentUpon>FormImpTaskData.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FormMCostMnt.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormMCostMnt.designer.cs">
+      <DependentUpon>FormMCostMnt.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <EmbeddedResource Include="FormClosingProc.resx">
+      <DependentUpon>FormClosingProc.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FormImpAuthority.resx">
+      <DependentUpon>FormImpAuthority.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FormImpGenData.resx">
+      <DependentUpon>FormImpGenData.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FormImpLedger.resx">
+      <DependentUpon>FormImpLedger.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FormImpMPartners.resx">
+      <DependentUpon>FormImpMPartners.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FormImpMCalendar.resx">
+      <DependentUpon>FormImpMCalendar.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FormImpMCommon.resx">
+      <DependentUpon>FormImpMCommon.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FormImpMCost.resx">
+      <DependentUpon>FormImpMCost.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FormImpMMembers.resx">
+      <DependentUpon>FormImpMMembers.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FormImpMWorkItems.resx">
+      <DependentUpon>FormImpMWorkItems.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FormImpMOffice.resx">
+      <DependentUpon>FormImpMOffice.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FormImpTaskData.resx">
+      <DependentUpon>FormImpTaskData.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FormMCostMnt.resx">
+      <DependentUpon>FormMCostMnt.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <None Include="packages.config" />
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ClassLibrary\ClassLibrary.csproj">
+      <Project>{2002CB81-09B2-494C-B2E5-85B4C8F1CA85}</Project>
+      <Name>ClassLibrary</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ListForm\ListForm.csproj">
+      <Project>{0d554f05-b759-4de0-b8a0-cf8f8585b0ac}</Project>
+      <Name>ListForm</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\PrintOut\PrintOut.csproj">
+      <Project>{1b733f87-1b25-4347-bd5d-168852763d95}</Project>
+      <Name>PrintOut</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="..\Shared\Shared.projitems" Label="Shared" />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

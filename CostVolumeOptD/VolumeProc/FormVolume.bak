@@ -1,0 +1,3161 @@
+﻿using ClassLibrary;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using ListForm;
+using System.IO;
+using PrintOut;
+// Wakamatsu 20150308
+//using Microsoft.Office.Interop.Excel;
+
+namespace VolumeProc
+{
+    public partial class FormVolume : Form
+    {
+        //----------------------------------------------------------------------------//
+        //     Field                                                                  //
+        //----------------------------------------------------------------------------//
+        HumanProperty hp;
+        private DataGridViewCellStyle defaultCellStyle;
+        CostReportData[] crdM07;
+        CostReportData[] crdM08;
+        CostReportData[] crdM09;
+        CostReportData[] crdM10;
+        CostReportData[] crdM11;
+        CostReportData[] crdM12;
+        CostReportData[] crdM01;
+        CostReportData[] crdM02;
+        CostReportData[] crdM03;
+        CostReportData[] crdM04;
+        CostReportData[] crdM05;
+        CostReportData[] crdM06;
+        //CostReportData[][] crdMa;
+
+        private decimal[] cumulativeAry = new decimal[13];         //受注単月
+        private decimal[] totalCumulativeAry = new decimal[13];    //受注累計
+        private decimal[] volUncompAry = new decimal[13];          //出来高 単月 未成業務
+        private decimal[] volClaimRemAry = new decimal[13];        //出来高 単月 未請求
+        private decimal[] volClaimAry = new decimal[13];           //出来高 単月 請求
+        private decimal[] monthlyTotalAry = new decimal[13];       //出来高 単月 月計
+        private decimal[] totalTradingVolumeAry = new decimal[13]; //出来高 累計
+
+        private decimal[] OverTime = new decimal[13];              //残業務高OverTime
+
+        private decimal[] cumulativeMAry = new decimal[13];        //請求 単月
+        private decimal[] totalCumulativeMAry = new decimal[13];   //請求 累計
+        private string[] claimDateAry = new string[13];            //請求 請求日
+
+        private decimal[] cumulativeVAry = new decimal[13];        //入金 単月
+        private decimal[] totalCumulativeVAry = new decimal[13];   //入金 累計
+        private string[] paidDateAry = new string[13];             //入金 入金日
+
+        private decimal[] cumulativeMCAry = new decimal[13];       //原価 単月
+        private decimal[] totalCumulativeMCAry = new decimal[13];  //原価 累計
+        private decimal[] setCostRateAry = new decimal[13];        //原価率
+
+        private bool iniPro = true;
+        private bool grdSet = false;
+        private int iniRCnt = 22;
+        private int[] readOnlyRows = new int[] { 1, 5, 6, 7, 9, 12, 14, 15, 16, 17, 18, 19, 20 };
+        private int[] readOnlyColumns = new int[] { 0 };
+        private int[] readOnlyAllRows = new int[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21 };
+        private int[] readOnlyAllColumns = new int[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 };
+        private int[] rowsBackColorColumns = new int[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 };
+
+
+        VolumeData[] volumedata;
+
+        const string HQOffice = "本社";
+        private string[] OfficeArray;
+
+        // Wakamatsu
+        private int ClosingDate = 7;                    // 最終締め月格納用(初期値は年度初め7月とする)
+
+        //----------------------------------------------------------------------------//
+        //     Constructor                                                            //
+        //----------------------------------------------------------------------------//
+        public FormVolume()
+        {
+            InitializeComponent();
+        }
+
+        public FormVolume(HumanProperty hp)
+        {
+            InitializeComponent();
+            this.hp = hp;
+        }
+
+        //----------------------------------------------------------------------------//
+        //     Property                                                               //
+        //----------------------------------------------------------------------------//
+
+        //----------------------------------------------------------------------------//
+        //     Method                                                                 //
+        //----------------------------------------------------------------------------//
+        private void FormVolume_Load(object sender, EventArgs e)
+        {
+            this.defaultCellStyle = new DataGridViewCellStyle();
+
+            UiHandling uih = new UiHandling(dataGridView1);
+            uih.DgvReadyNoRHeader();
+            //並び替えができないようにする
+            uih.NoSortable();
+
+            uih.DgvColumnsWidth(80);
+            uih.DgvColumnsWidth(0, 90);
+
+            dataGridView1.Rows.Add(iniRCnt);
+            uih.DgvRowsHeight(22);
+            uih.DgvRowsReadOnly(readOnlyRows);
+            uih.DgvColumnsReadOnly(readOnlyColumns);
+
+            uih.DgvRowsColor(readOnlyRows, Color.PaleGreen);
+            uih.DgvColumnsColor(readOnlyColumns, Color.PaleGreen);
+
+            // Wakamatsu 20170322
+            uih.DgvRowsHeight(iniRCnt - 1, 43);
+            uih.DgvColumnsWrapModeON(iniRCnt - 1, DataGridViewContentAlignment.TopLeft);
+            // Wakamatsu 20170322
+
+            dataGridView1.AllowUserToAddRows = false;
+
+            //出来高テーブル関連（今年）
+            CreateCbYear();
+
+            //ドロップダウンリスト作成
+            //期間
+            CreateCbPeriod();
+
+            //業務状態
+            CreateCbTaskState();
+
+            //部署
+            CreateCbOffice();
+
+            //部門
+            CreateCbDepartment();
+
+            /***** ComboBox 「業務コード」作成 *****/
+            //全て
+            createTaskCodeCB(comboBoxTaskCode);
+
+            VolumeDataInit();
+
+            // Wakamatsu
+            // 最終締め月を取得する
+            CommonData com = new CommonData();          // M_Commonアクセスクラス
+            ClosingDate = Convert.ToInt32(com.SelectCloseDate(Convert.ToString(this.comboBoxOfficeCode.SelectedValue)).ToString("MM"));
+            // Wakamatsu
+            // Wakamatsu 20170322
+            int[] monthArray = new int[] { 0, 7, 8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6 };
+            int DisplyLimit = Array.IndexOf(monthArray, ClosingDate);
+            int[] ReadOnlySet = new int[DisplyLimit];
+            for (int i = 0; i < DisplyLimit; i++)
+                ReadOnlySet[i] = i;
+            uih.DgvColumnsReadOnly(ReadOnlySet);
+            // Wakamatsu 20170322
+        }
+
+
+        private void FormVolume_Shown(object sender, EventArgs e)
+        {
+            iniPro = false;       // 初期化処理終了
+            ScreenDisplay();
+            // Wakamatsu 20170313
+            dataGridView1.CurrentCell = null;
+        }
+
+
+        //--------------------------------------------------------------------------//
+        //     SubRoutine                                                           //
+        //--------------------------------------------------------------------------//
+        //-----------------------------//
+        // User Control                //
+        //-----------------------------//
+
+        private void button_Click(object sender, EventArgs e)
+        {
+            if (iniPro) return;
+
+            System.Windows.Forms.Button btn = (System.Windows.Forms.Button)sender;
+            EstPlanOp epo = new EstPlanOp();
+
+            switch (btn.Name)
+            {
+                case "buttonSave":
+                    VolumeSave(dataGridView1);
+                    break;
+                case "buttonCancel":
+                    this.Close();
+                    break;
+                case "buttonNextTask":
+                    NextTaskCode();
+                    break;
+                case "buttonBeforeTask":
+                    BeforeTaskCode();
+                    break;
+                case "buttonSaveNextTask":
+                    // Wakamatsu 20170308
+                    //VolumeSave(dataGridView1);
+                    if (VolumeSave(dataGridView1) == true)
+                        // Wakamatsu 20170308
+                        NextTaskCode();
+                    break;
+                case "buttonSaveBeforeTask":
+                    // Wakamatsu 20170308
+                    //VolumeSave(dataGridView1);
+                    if (VolumeSave(dataGridView1) == true)
+                        // Wakamatsu 20170308
+                        BeforeTaskCode();
+                    break;
+                case "buttonTaskSort":
+                    TaskCodeSort();
+                    break;
+                case "buttonFormReview":
+                    hp.OfficeCode = Convert.ToString(comboBoxOfficeCode.SelectedValue);
+                    hp.Department = Convert.ToString(comboBoxDepartment.SelectedValue);
+                    FormReview formReview = null;
+                    // Wakamatsu 20170302
+                    //formReview = new FormReview(hp);
+                    formReview = new FormReview(hp, this.comboBoxYear.Text);
+                    // Wakamatsu 20170302
+                    formReview.Show();
+                    break;
+                case "buttonGetCost":
+                    SetOriginalCost();
+                    break;
+                case "buttonExcelPrint":
+                    VolumeExcelPrint();
+                    break;
+                case "buttonPdfPrint":
+                    FormPdfOut frmPdf = new FormPdfOut();
+
+                    frmPdf.TaskCode = this.comboBoxTaskCode;
+                    frmPdf.OfficeCode = this.comboBoxOfficeCode;
+                    frmPdf.Department = this.comboBoxDepartment;
+                    frmPdf.SetGridVew = this.dataGridView1;
+                    frmPdf.TaskState = this.comboBoxTaskState;
+                    frmPdf.SetYear = this.comboBoxYear.Text;
+                    frmPdf.SetCarryOver = this.textBoxCarryOverPlanned.Text;
+                    // Wakamatsu
+                    //frmPdf.SetCompletionHigh = this.labelYearCompletionHigh.Text;
+                    // Wakamatsu
+                    frmPdf.SetNote = this.textBoxNote.Text;
+                    // Wakamatsu
+                    // Wakamatsu 20170322
+                    //frmPdf.SetNote2 = this.textBoxNote2.Text;
+                    // Wakamatsu 20170322
+                    frmPdf.ClosingDate = ClosingDate;
+                    // Wakamatsu
+
+                    frmPdf.Show();
+                    break;
+                default:
+                    break;
+            }
+        }
+
+
+        private void dataGridView1_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (iniPro) return;
+
+            DataGridView dgv = (DataGridView)sender;
+            switch (e.KeyCode)
+            {
+                // Wakamatsu 20170308
+                case Keys.Delete:
+                case Keys.Back:
+                    if (dgv.Rows[dgv.CurrentCellAddress.Y].Cells[dgv.CurrentCellAddress.X].ReadOnly == false)
+                        dgv.Rows[dgv.CurrentCellAddress.Y].Cells[dgv.CurrentCellAddress.X].Value = "";
+                    break;
+                // Wakamatsu 20170308
+                case Keys.Right:
+                case Keys.Tab:
+                    break;
+                case Keys.Left:
+                    break;
+                default:
+                    break;
+            }
+
+            if ((e.Modifiers & Keys.Control) != Keys.Control) return;   // Ctrlキーが押下された時のみ以下処理
+
+            switch (e.KeyCode)
+            {
+                case Keys.A:
+                    if ((dgv.CurrentCellAddress.Y >= 16) && (dgv.CurrentCellAddress.Y <= 18))
+                    {
+                        if (dgv.CurrentCellAddress.X >= 1)
+                        {
+                            chooseCostDetailData(dgv.CurrentCellAddress.X);
+                            dgv.Rows[dgv.CurrentCellAddress.Y].Cells[1].Style = this.defaultCellStyle;
+                        }
+                    }
+                    break;
+                case Keys.C:
+                    Clipboard.SetDataObject(dgv.GetClipboardContent());
+                    break;
+                default:
+                    break;
+            }
+        }
+
+
+        private void dataGridView1_CellValueChanged(object sender, DataGridViewCellEventArgs e)
+        {
+            if (iniPro) return;
+
+            if (grdSet) return;
+
+            DataGridView dgv = (DataGridView)sender;
+
+            if ((e.RowIndex == 10) || (e.RowIndex == 13)) //請求日または入金日
+            {
+                //if ((dgv.Rows[e.RowIndex].Cells[e.ColumnIndex].Value != null)
+                //    && (dgv.Rows[e.RowIndex].Cells[e.ColumnIndex].Value != DBNull.Value)
+                //    && (dgv.Rows[e.RowIndex].Cells[e.ColumnIndex].Value.ToString().Trim() != ""))
+                if ((!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[e.RowIndex].Cells[e.ColumnIndex].Value)))
+                    && (dgv.Rows[e.RowIndex].Cells[e.ColumnIndex].Value != DBNull.Value))
+                {
+                    string strDateTime = dgv.Rows[e.RowIndex].Cells[e.ColumnIndex].Value.ToString();
+                    DateTime dt;
+                    if (DateTime.TryParse(strDateTime, out dt))
+                    {
+                        //変換出来たら、dtにその値が入る
+                        dgv.Rows[e.RowIndex].Cells[e.ColumnIndex].Value = dt.ToString("yyyy/MM/dd");
+                    }
+                    else
+                    {
+                        dgv.Rows[e.RowIndex].Cells[e.ColumnIndex].Value = "";
+                        return;
+                    }
+                }
+            }
+            else if ((e.RowIndex == 0) || //受注単月
+               (e.RowIndex == 2) || //出来高 未成業務
+               (e.RowIndex == 3) || //出来高 未請求
+               (e.RowIndex == 4) || //出来高 請求
+               (e.RowIndex == 8) || //請求 単月
+               (e.RowIndex == 11)) //入金 単月
+            {
+                //if ((dgv.Rows[e.RowIndex].Cells[e.ColumnIndex].Value != null)
+                //    && (dgv.Rows[e.RowIndex].Cells[e.ColumnIndex].Value != DBNull.Value)
+                //    && (dgv.Rows[e.RowIndex].Cells[e.ColumnIndex].Value.ToString().Trim() != ""))
+                if ((!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[e.RowIndex].Cells[e.ColumnIndex].Value)))
+                    && (dgv.Rows[e.RowIndex].Cells[e.ColumnIndex].Value != DBNull.Value))
+                {
+                    if (!(DHandling.IsDecimal(Convert.ToString(dgv.Rows[e.RowIndex].Cells[e.ColumnIndex].Value.ToString()))))
+                    {
+                        dgv.Rows[e.RowIndex].Cells[e.ColumnIndex].Value = "";
+                        return;
+                    }
+                }
+            }
+
+            //if ((dgv.Rows[e.RowIndex].Cells[e.ColumnIndex].Value != null)
+            //    && (dgv.Rows[e.RowIndex].Cells[e.ColumnIndex].Value != DBNull.Value)
+            //    && (dgv.Rows[e.RowIndex].Cells[e.ColumnIndex].Value.ToString().Trim() != ""))
+            if ((!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[e.RowIndex].Cells[e.ColumnIndex].Value)))
+                && (dgv.Rows[e.RowIndex].Cells[e.ColumnIndex].Value != DBNull.Value))
+            {
+                if (e.RowIndex == 0 || e.RowIndex == 2 || e.RowIndex == 3 || e.RowIndex == 4 || e.RowIndex == 8 || e.RowIndex == 11)
+                {
+                    decimal decSelectData = Convert.ToDecimal(dgv.Rows[e.RowIndex].Cells[e.ColumnIndex].Value.ToString().Trim());
+                    dgv.Rows[e.RowIndex].Cells[e.ColumnIndex].Value = DHandling.DecimaltoStr(decSelectData, "#,0");
+                }
+            }
+
+            switch (e.RowIndex)
+            {
+                case 0://受注単月
+                case 2://出来高未成業務
+                case 3://出来高未請求
+                case 4://出来高請求
+                case 8://請求単月
+                case 11://入金単月
+                case 16://原価単月
+                    for (int i = 0; i <= 12; i++)
+                    {
+                        SetCumulative(dgv, i);          //受注累計
+                        SetMonthlyTotal(dgv, i);        //出来高月計
+                        SetTotalTradingVolume(dgv, i);  //出来高累計
+                        SetOverTime(dgv, i);            //残業務高
+                        SetCumulativeM(dgv, i);         //請求累計
+                        SetCumulativeV(dgv, i);         //入金累計
+                        SetResidualClaimHigh(dgv, i);   //残請求高
+                        SetUncompBusAccept(dgv, i);     //未成業務受入金
+                        SetCumulativeMC(dgv, i);        //原価累計
+                        SetCostRate(dgv, i);            //原価率
+                        SetAccountsReceivable(dgv, i);  //未収入金
+                        SetUncompBusAcceptM(dgv, i);    //未成業務受入金
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        // Wakamatsu 20170308
+        private void dataGridView1_CellBeginEdit(object sender, DataGridViewCellCancelEventArgs e)
+        {
+            if (iniPro) return;
+
+            DataGridView dgv = (DataGridView)sender;
+            // Wakamatsu 20170322
+            if (e.RowIndex != 10 && e.RowIndex != 13 && e.RowIndex != 21)
+            {
+                grdSet = true;
+                if (Convert.ToString(dgv.Rows[e.RowIndex].Cells[e.ColumnIndex].Value) != "")
+                    dgv.Rows[e.RowIndex].Cells[e.ColumnIndex].Value = SignConvert(dgv.Rows[e.RowIndex].Cells[e.ColumnIndex].Value);
+                grdSet = false;
+            }
+        }
+
+        private void dataGridView1_CellEndEdit(object sender, DataGridViewCellEventArgs e)
+        {
+            if (iniPro) return;
+
+            DataGridView dgv = (DataGridView)sender;
+
+            // Wakamatsu 20170322
+            if (e.RowIndex != 10 && e.RowIndex != 13 && e.RowIndex != 21)
+            {
+                grdSet = true;
+                dgv.Rows[e.RowIndex].Cells[e.ColumnIndex].Value = MinusConvert(dgv.Rows[e.RowIndex].Cells[e.ColumnIndex].Value);
+                grdSet = false;
+            }
+        }
+        // Wakamatsu 20170308
+
+        //private void comboBox_TextChanged(object sender, EventArgs e)
+        //{
+        //    ComboBox cb = (ComboBox)sender;
+        //    switch (cb.Name)
+        //    {
+        //        case "comboBoxPeriod":
+        //            ScreenDisplay();
+        //            break;
+        //        case "comboBoxTaskCode":
+        //            ScreenDisplay();
+        //            break;
+        //        case "comboBoxTaskName":
+        //            break;
+        //        case "comboBoxTaskState":
+        //            break;
+        //        default:
+        //            break;
+        //    }
+        //}
+
+
+        private void CarryOverPlanned_TextChanged(object sender, EventArgs e)
+        {
+            //年度内完工高
+            //繰越予定額
+            decimal carryOverPlanned = 0;
+            decimal yearCompHigh = 0;
+
+            // Wakamatsu 20170308
+            if (textBoxCarryOverPlanned.Text.Trim() == "") return;
+            if (textBoxCarryOverPlanned.Text.Trim() == "-") return;
+            // Wakamatsu 20170308
+
+            // Wakamatsu
+            //if ( textBoxCarryOverPlanned.Text.ToString().Trim() != "" )
+            //    carryOverPlanned = Convert.ToDecimal( textBoxCarryOverPlanned.Text );
+            if (DHandling.IsDecimal(textBoxCarryOverPlanned.Text) == true)
+                carryOverPlanned = Convert.ToDecimal(textBoxCarryOverPlanned.Text);
+            else
+            {
+                // Wakamatsu 20170308
+                carryOverPlanned = SignConvert(textBoxCarryOverPlanned.Text);
+                if (carryOverPlanned == 0)
+                // Wakamatsu 20170308
+                {
+                    textBoxCarryOverPlanned.Text = "";
+                    return;
+                }
+            }
+            // Wakamatsu
+
+            if (textBoxYearCompHigh.Text.ToString().Trim() != "")
+                yearCompHigh = Convert.ToDecimal(textBoxYearCompHigh.Text);
+
+            decimal decYearCompletionHigh = yearCompHigh - carryOverPlanned;
+
+            labelYearCompletionHigh.Text = "";
+
+            // Wakamatsu
+            for (int i = 1; i < 13; i++)
+            // Wakamatsu
+            {
+                // Wakamatsu
+                if (!string.IsNullOrEmpty(Convert.ToString(this.dataGridView1.Rows[0].Cells[i].Value)))
+                // Wakamatsu
+                {
+                    if (decYearCompletionHigh != 0)
+                    {
+                        if (decYearCompletionHigh > 0)
+                        {
+                            labelYearCompletionHigh.Text = DHandling.DecimaltoStr(Convert.ToDecimal(decYearCompletionHigh), "#,0");
+                        }
+                        else
+                        {
+                            string strYearCompletionHigh = DHandling.DecimaltoStr(Convert.ToDecimal(decYearCompletionHigh), "#,0");
+                            labelYearCompletionHigh.Text = strYearCompletionHigh.Replace("-", "△");
+                        }
+                    }
+                }
+            }
+        }
+
+        private void comboBoxYeah_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (iniPro) return;
+
+            //今年度以外は編集不可にする。
+            DateTime dtNow = DateTime.Now;
+
+            UiHandling uih = new UiHandling(dataGridView1);
+            uih.DgvReadOnlyColorClear();
+            if (dtNow.FiscalYear() == Convert.ToInt32(comboBoxYear.Text))
+            {
+                uih.DgvRowsReadOnly(readOnlyRows);
+                uih.DgvColumnsReadOnly(readOnlyColumns);
+                uih.DgvRowsBackColorSet(readOnlyRows, rowsBackColorColumns, Color.PaleGreen);
+                uih.DgvColumnsColor(readOnlyColumns, Color.PaleGreen);
+                textBoxCarryOverPlanned.Enabled = true;
+                textBoxNote.Enabled = true;
+                buttonGetCost.Enabled = true;
+                buttonSaveNextTask.Enabled = true;
+                buttonSaveBeforeTask.Enabled = true;
+                buttonTaskSort.Enabled = true;
+                buttonSave.Enabled = true;
+                comboBoxTaskState.Enabled = true;
+                // Wakamatsu
+                CommonData com = new CommonData();          // M_Commonアクセスクラス
+                ClosingDate = Convert.ToInt32(com.SelectCloseDate(Convert.ToString(this.comboBoxOfficeCode.SelectedValue)).ToString("MM"));
+                // Wakamatsu
+                // Wakamatsu 20170322
+                int[] monthArray = new int[] { 0, 7, 8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6 };
+                int DisplyLimit = Array.IndexOf(monthArray, ClosingDate);
+                int[] ReadOnlySet = new int[DisplyLimit];
+                for (int i = 0; i < DisplyLimit; i++)
+                    ReadOnlySet[i] = i;
+                uih.DgvColumnsReadOnly(ReadOnlySet);
+                // Wakamatsu 20170322
+            }
+            else
+            {
+                uih.DgvRowsReadOnly(readOnlyAllRows);
+                uih.DgvColumnsReadOnly(readOnlyAllColumns);
+                uih.DgvRowsColor(readOnlyAllRows, Color.PaleGreen);
+                uih.DgvColumnsColor(readOnlyAllColumns, Color.PaleGreen);
+                textBoxCarryOverPlanned.Enabled = false;
+                textBoxNote.Enabled = false;
+                buttonGetCost.Enabled = false;
+                buttonSaveNextTask.Enabled = false;
+                buttonSaveBeforeTask.Enabled = false;
+                buttonTaskSort.Enabled = false;
+                buttonSave.Enabled = false;
+                comboBoxTaskState.Enabled = false;
+                // Wakamatsu
+                ClosingDate = 6;
+                // Wakamatsu
+            }
+            ScreenDisplayUpdate();
+            TaskCodeSort();
+        }
+
+
+        private void comboOfficeCode_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (iniPro) return;
+            comboBoxDepartment.Visible = false;
+
+            if (comboBoxOfficeCode.SelectedIndex == 0) comboBoxDepartment.Visible = true;
+            createTaskCodeCB(comboBoxTaskCode);
+            // Wakamatsu
+            DateTime dtNow = DateTime.Now;
+            // 最終締め月を取得する
+            if (dtNow.FiscalYear() == Convert.ToInt32(comboBoxYear.Text))
+            {
+                CommonData com = new CommonData();          // M_Commonアクセスクラス
+                ClosingDate = Convert.ToInt32(com.SelectCloseDate(Convert.ToString(this.comboBoxOfficeCode.SelectedValue)).ToString("MM"));
+            }
+            else
+                ClosingDate = 6;
+            // Wakamatsu
+            ScreenDisplayUpdate();
+        }
+
+        // Wakamatsu 20170308
+        private void textBoxCarryOverPlanned_Enter(object sender, EventArgs e)
+        {
+            if (textBoxCarryOverPlanned.Text.Trim() != "")
+                textBoxCarryOverPlanned.Text = SignConvert(textBoxCarryOverPlanned.Text).ToString("#,0");
+        }
+        // Wakamatsu 20170308
+
+        private void textBoxCarryOverPlanned_Leave(object sender, EventArgs e)
+        {
+            // Wakamatsu 20170308
+            //decimal carryOverPlanned = 0;
+            if (textBoxCarryOverPlanned.Text.ToString().Trim() != "")
+            {
+                // Wakamatsu
+                if (DHandling.IsDecimal(textBoxCarryOverPlanned.Text) == true)
+                    // Wakamatsu
+                    // Wakamatsu 20170308
+                    //carryOverPlanned = Convert.ToDecimal(textBoxCarryOverPlanned.Text);
+                    //textBoxCarryOverPlanned.Text = DHandling.DecimaltoStr(Convert.ToDecimal(carryOverPlanned), "#,0");
+                    textBoxCarryOverPlanned.Text = MinusConvert(textBoxCarryOverPlanned.Text);
+                // Wakamatsu 20170308
+                else
+                    textBoxCarryOverPlanned.Text = "";
+            }
+        }
+
+
+        private void dataGridView1_UserDeletingRow(object sender, DataGridViewRowCancelEventArgs e)
+        {
+            if (dataGridView1.SelectedCells.IsReadOnly == true)
+                e.Cancel = true;
+        }
+
+
+        private void comboBoxDepartment_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (iniPro) return;
+
+            createTaskCodeCB(comboBoxTaskCode);
+            ScreenDisplayUpdate();
+        }
+
+
+        private void comboBoxTaskCode_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (iniPro) return;
+            releaseExclusive();
+            ScreenDisplayUpdate();
+        }
+        //-----------------------------//
+        // comboBox作成                //
+        //-----------------------------//
+        private void CreateCbYear()
+        {
+            DateTime dtNow = DateTime.Now;
+            ComboBoxEdit cbe = new ComboBoxEdit(comboBoxYear);
+            cbe.ValueItem = new string[5];
+            cbe.DisplayItem = new string[5];
+            for (int i = 0; i < cbe.ValueItem.Length; i++)
+            {
+                cbe.ValueItem[i] = i.ToString();
+                cbe.DisplayItem[i] = (dtNow.FiscalYear() - i).ToString();
+            }
+
+            cbe.Basic();
+        }
+
+
+        private void CreateCbPeriod()
+        {
+            ComboBoxEdit cbe = new ComboBoxEdit(comboBoxPeriod);
+            cbe.ValueItem = new string[] { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12" };
+            cbe.DisplayItem = new string[] { "全ての月", "7月まで", "8月まで", "9月まで", "10月まで", "11月まで", "12月まで", "1月まで", "2月まで", "3月まで", "4月まで", "5月まで", "6月まで" };
+            cbe.Basic();
+        }
+
+
+        private void CreateCbTaskState()
+        {
+            ComboBoxEdit cbe = new ComboBoxEdit(comboBoxTaskState);
+            cbe.ValueItem = new string[] { "0", "1", "2", "3" };
+            cbe.DisplayItem = new string[] { "稼働", "完了", "休止中", "完全完了" };
+            cbe.Basic();
+        }
+
+
+        // 事業所
+        private void CreateCbOffice()
+        {
+            ComboBoxEdit cbe = new ComboBoxEdit(comboBoxOfficeCode);
+            cbe.TableData("M_Office", "OfficeCode", "OfficeName");
+
+            OfficeArray = new string[cbe.ValueItem.Length];
+            Array.Copy(cbe.ValueItem, 0, OfficeArray, 0, OfficeArray.Length);
+        }
+
+
+        // 部門
+        private void CreateCbDepartment()
+        {
+            ComboBoxEdit cbe = new ComboBoxEdit(comboBoxDepartment);
+            cbe.DepartmentList((comboBoxOfficeCode.Text == HQOffice) ? "DEPH" : "DEPB", 1);
+        }
+
+
+        private void createTaskCodeCB(ComboBox cbTaskCode)
+        {
+            ComboBoxEdit cbe = new ComboBoxEdit(cbTaskCode);
+            // Wakamatsu
+            //string volDepartmentParam = " AND D_V.Department = " + "'" + comboBoxDepartment.SelectedValue.ToString() + "' ";
+            string volDepartmentParam = "";
+            string tiDepartmentParam = "";
+            if (comboBoxOfficeCode.Text == Sign.HQOffice)
+            {
+                volDepartmentParam = " AND D_V.Department = " + "'" + comboBoxDepartment.SelectedValue.ToString() + "' ";
+                tiDepartmentParam = " AND D_TI.Department = " + "'" + comboBoxDepartment.SelectedValue.ToString() + "' ";
+            }
+            else
+            {
+                volDepartmentParam = " AND D_V.Department = '8' ";
+                tiDepartmentParam = " AND D_TI.Department = '8' ";
+            }
+            //string yearMonthParam = " YearMonth = " + comboBoxYear.Text + Convert.ToString(Conv.FisicalYearStartingMonth) + " OR YearMonth IS NULL ";
+            string yearMonthParam = " YearMonth = " + comboBoxYear.Text + Conv.FisicalYearStartingMonth.ToString("00") + " OR YearMonth IS NULL ";
+            //string tiDepartmentParam = " AND D_TI.Department = " + "'" + comboBoxDepartment.SelectedValue.ToString() + "' ";
+            // Wakamatsu
+            string volOfficeCodeParam = " D_V.OfficeCode = '" + comboBoxOfficeCode.SelectedValue.ToString() + "' ";
+            string tiOfficeCodeParam = " D_TI.OfficeCode = '" + comboBoxOfficeCode.SelectedValue.ToString() + "' ";
+            //string strTable = "DISTINCT D_T.TaskID AS TaskID, D_TI.TaskCode AS TaskCode, ISNULL(D_V.TaskStat, 0) AS TaskStat, D_V.YearMonth AS YearMonth, LEFT(D_TI.TaskCode,1) AS TaskDep "
+            //                + " FROM D_Task AS D_T "
+            //                + " INNER JOIN D_TaskInd AS D_TI ON D_TI.TaskID = D_T.TaskID "
+            //                + " LEFT JOIN D_Volume AS D_V ON D_V.TaskCode = D_TI.TaskCode "
+            //                + " AND (" + yearMonthParam + ") AND" + volOfficeCodeParam + volDepartmentParam
+            //                + " WHERE " + tiOfficeCodeParam
+            //                + tiDepartmentParam
+            //                + " ORDER BY TaskStat,TaskID ASC ";
+
+            string strTable = "DISTINCT D_T.TaskID AS TaskID, D_TI.TaskCode AS TaskCode, ISNULL(D_V.TaskStat, 0) AS TaskStat, D_V.YearMonth AS YearMonth, LEFT(D_TI.TaskCode,1) AS TaskDep "
+                            + " FROM D_Task AS D_T "
+                            + " INNER JOIN D_TaskInd AS D_TI ON D_TI.TaskID = D_T.TaskID "
+                            + " LEFT JOIN D_Volume AS D_V ON D_V.TaskCode = D_TI.TaskCode "
+                            + " AND (" + yearMonthParam + ") AND" + volOfficeCodeParam + volDepartmentParam
+                            + " WHERE " + tiOfficeCodeParam
+                            + tiDepartmentParam
+                            + " ORDER BY TaskStat,TaskCode ASC ";
+            // Wakamatsu
+            //cbe.TableDataForCostData("TaskCode", strTable);
+            if (cbe.TableDataForCostData("TaskCode", strTable) == false)
+            {
+                cbTaskCode.DataSource = null;
+                cbTaskCode.Items.Add(new object());
+                cbTaskCode.Items.Clear();
+            }
+            // Wakamatsu
+        }
+
+
+        private void VolumeDataInit()
+        {
+            comboBoxPeriod.SelectedIndex = 0;       //期間
+            comboBoxTaskCode.SelectedIndex = 0;     //業務番号
+            //textBoxTaskName.Text = "";              //業務名
+            labelTaskName.Text = "";              //業務名
+            //textBoxSupplierName.Text = "";          //業者名
+            labelSupplierName.Text = "";          //業者名
+            comboBoxTaskState.SelectedIndex = 0;    //業務状態
+            labelStartDate.Text = "";               //工期開始
+            labelEndDate.Text = "";                 //工期終了
+            labelOrdersForm.Text = "";              //受注形態
+            textBoxCarryOverPlanned.Text = "";      //繰越予定額
+            labelYearCompletionHigh.Text = "";      //年度内完工高
+            labelContact.Text = "";                 //担当者
+            labelClaimform.Text = "";               //請求形態
+            //textBoxPayNote.Text = "";               //支払条件
+            labelPayNote.Text = "";               //支払条件
+            comboBoxYear.Text = "";
+
+            for (int i = 0; i <= 12; i++) ClrVolumeInf(i);
+        }
+
+
+        // 原価内訳データを得る
+        private void chooseCostDetailData(int lNo)
+        {
+            CostReportData[] crd = null;
+            switch (lNo)
+            {
+                case 1:
+                    crd = crdM07;
+                    break;
+                case 2:
+                    crd = crdM08;
+                    break;
+                case 3:
+                    crd = crdM09;
+                    break;
+                case 4:
+                    crd = crdM10;
+                    break;
+                case 5:
+                    crd = crdM11;
+                    break;
+                case 6:
+                    crd = crdM12;
+                    break;
+                case 7:
+                    crd = crdM01;
+                    break;
+                case 8:
+                    crd = crdM02;
+                    break;
+                case 9:
+                    crd = crdM03;
+                    break;
+                case 10:
+                    crd = crdM04;
+                    break;
+                case 11:
+                    crd = crdM05;
+                    break;
+                case 12:
+                    crd = crdM06;
+                    break;
+                default:
+                    break;
+            }
+
+            FormVolumeCostDetailList formCostList = new FormVolumeCostDetailList(crd);
+            formCostList.ShowDialog();
+        }
+
+
+        private bool dispPreYearVolumeData(string taskCode, int yearData, int preYearData, string officeCode, string department)
+        {
+            VolumeData vd = new VolumeData();
+            volumedata = vd.SelectVolumeData(officeCode, department, taskCode, yearData, preYearData);
+            if (volumedata == null) return false;
+            loadPreYearVolumeData(volumedata, dataGridView1);
+            return true;
+        }
+
+
+        private void loadPreYearVolumeData(VolumeData[] volumedata, DataGridView dgv)
+        {
+            if (volumedata.Count() < 1) return;
+            dgv.Rows[0].Cells["LY"].Value = "";
+            dgv.Rows[2].Cells["LY"].Value = "";
+            dgv.Rows[3].Cells["LY"].Value = "";
+            dgv.Rows[4].Cells["LY"].Value = "";
+            dgv.Rows[8].Cells["LY"].Value = "";
+            dgv.Rows[10].Cells["LY"].Value = "";
+            dgv.Rows[11].Cells["LY"].Value = "";
+            dgv.Rows[13].Cells["LY"].Value = "";
+            dgv.Rows[16].Cells["LY"].Value = "";
+            dgv.Rows[21].Cells["LY"].Value = "";
+
+            // Wakamatsu 20170331
+            //if (volumedata[0].MonthlyVolume != null)
+            if (volumedata[0].MonthlyVolume != null && volumedata[0].MonthlyVolume != 0 )
+                // Wakamatsu 20170308
+                //dgv.Rows[0].Cells["LY"].Value = decFormat(Convert.ToDecimal(volumedata[0].MonthlyVolume));//受注単月
+                dgv.Rows[0].Cells["LY"].Value = MinusConvert(volumedata[0].MonthlyVolume);   //受注単月
+                                                                                             // Wakamatsu 20170308
+
+            // Wakamatsu 20170331
+            //if (volumedata[0].VolUncomp != null)
+            if (volumedata[0].VolUncomp != null && volumedata[0].VolUncomp != 0)
+                // Wakamatsu 20170308
+                //dgv.Rows[2].Cells["LY"].Value = decFormat(Convert.ToDecimal(volumedata[0].VolUncomp));    //出来高未成業務
+                dgv.Rows[2].Cells["LY"].Value = MinusConvert(volumedata[0].VolUncomp);        //出来高未成業務
+                                                                                              // Wakamatsu 20170308
+
+            // Wakamatsu 20170331
+            //if (volumedata[0].VolClaimRem != null)
+            if (volumedata[0].VolClaimRem != null && volumedata[0].VolClaimRem != 0)
+                // Wakamatsu 20170308
+                //dgv.Rows[3].Cells["LY"].Value = decFormat(Convert.ToDecimal(volumedata[0].VolClaimRem));  //出来高未請求
+                dgv.Rows[3].Cells["LY"].Value = MinusConvert(volumedata[0].VolClaimRem);     //出来高未請求
+                                                                                             // Wakamatsu 20170308
+
+            // Wakamatsu 20170331
+            //if (volumedata[0].VolClaim != null)
+            if (volumedata[0].VolClaim != null && volumedata[0].VolClaim != 0)
+                // Wakamatsu 20170308
+                //dgv.Rows[4].Cells["LY"].Value = decFormat(Convert.ToDecimal(volumedata[0].VolClaim));     //出来高請求
+                dgv.Rows[4].Cells["LY"].Value = MinusConvert(volumedata[0].VolClaim);        //出来高請求
+                                                                                             // Wakamatsu 20170308
+
+            // Wakamatsu 20170331
+            //if (volumedata[0].MonthlyClaim != null)
+            if (volumedata[0].MonthlyClaim != null && volumedata[0].MonthlyClaim != 0)
+                // Wakamatsu
+                //dgv.Rows[8].Cells["LY"].Value = volumedata[0].MonthlyClaim; //請求単月
+                // Wakamatsu 20170308
+                //dgv.Rows[8].Cells["LY"].Value = decFormat(Convert.ToDecimal(volumedata[0].MonthlyClaim)); //請求単月
+                dgv.Rows[8].Cells["LY"].Value = MinusConvert(volumedata[0].MonthlyClaim);     //請求単月
+                                                                                              // Wakamatsu 20170308
+                                                                                              // Wakamatsu
+
+            // Wakamatsu 20170331
+            //if (volumedata[0].VolPaid != null)
+            if (volumedata[0].VolPaid != null && volumedata[0].VolPaid != 0)
+                // Wakamatsu
+                //dgv.Rows[11].Cells["LY"].Value = volumedata[0].VolPaid;     //入金単月
+                // Wakamatsu 20170308
+                //dgv.Rows[11].Cells["LY"].Value = decFormat(Convert.ToDecimal(volumedata[0].VolPaid));     //入金単月
+                dgv.Rows[11].Cells["LY"].Value = MinusConvert(volumedata[0].VolPaid);         //入金単月
+                                                                                              // Wakamatsu 20170308
+                                                                                              // Wakamatsu
+
+            // Wakamatsu 20170331
+            //if (volumedata[0].ClaimDate != null)
+            if (volumedata[0].ClaimDate != null && volumedata[0].ClaimDate != DateTime.MinValue)
+                dgv.Rows[10].Cells["LY"].Value = Convert.ToDateTime(volumedata[0].ClaimDate).ToString("yyyy/MM/dd");     //請求日
+            // Wakamatsu 20170331
+            //if (volumedata[0].PaidDate != null)
+            if (volumedata[0].PaidDate != null && volumedata[0].PaidDate != DateTime.MinValue)
+                dgv.Rows[13].Cells["LY"].Value = Convert.ToDateTime(volumedata[0].PaidDate).ToString("yyyy/MM/dd");     //入金日
+                                                                                                                        // Wakamatsu
+
+
+            // Wakamatsu 20170331
+            if (volumedata[0].MonthlyCost != null && volumedata[0].MonthlyCost != 0)
+                dgv.Rows[16].Cells["LY"].Value = MinusConvert(volumedata[0].MonthlyCost);     //原価単月
+            // Wakamatsu 20170331
+        }
+
+
+        private bool dispVolumeData(int colName, string taskCode, int yearMonth, string officeCode, string department, int colCnt)
+        {
+            VolumeData vd = new VolumeData();
+            volumedata = vd.SelectVolumeData(taskCode, yearMonth, officeCode, department);
+
+            if (volumedata == null) return false;
+            loadVolumeData(colName, volumedata, dataGridView1, colCnt);
+
+            return true;
+        }
+
+
+        private void loadVolumeData(int intColName, VolumeData[] volumedata, DataGridView dgv, int intColCnt)
+        {
+            if (volumedata.Count() < 1) return;
+
+            string strM = "M";
+            strM = strM + intColName.ToString();
+            intColCnt = 0;
+            dgv.Rows[0].Cells[strM].Value = "";
+            dgv.Rows[2].Cells[strM].Value = "";
+            dgv.Rows[3].Cells[strM].Value = "";
+            dgv.Rows[4].Cells[strM].Value = "";
+            dgv.Rows[8].Cells[strM].Value = "";
+            dgv.Rows[10].Cells[strM].Value = "";
+            dgv.Rows[11].Cells[strM].Value = "";
+            dgv.Rows[13].Cells[strM].Value = "";
+            dgv.Rows[16].Cells[strM].Value = "";
+            dgv.Rows[21].Cells[strM].Value = "";
+
+            if (volumedata[intColCnt].MonthlyVolume != null)
+                // Wakamatsu 20170308
+                //dgv.Rows[0].Cells[strM].Value = decFormat(Convert.ToDecimal(volumedata[intColCnt].MonthlyVolume));//受注単月
+                dgv.Rows[0].Cells[strM].Value = MinusConvert(volumedata[intColCnt].MonthlyVolume);        //受注単月
+                                                                                                          // Wakamatsu 20170308
+            if (volumedata[intColCnt].VolUncomp != null)
+                // Wakamatsu 20170308
+                //dgv.Rows[2].Cells[strM].Value = decFormat(Convert.ToDecimal(volumedata[intColCnt].VolUncomp));    //出来高未成業務
+                dgv.Rows[2].Cells[strM].Value = MinusConvert(volumedata[intColCnt].VolUncomp);            //出来高未成業務
+                                                                                                          // Wakamatsu 20170308
+            if (volumedata[intColCnt].VolClaimRem != null)
+                // Wakamatsu 20170308
+                //dgv.Rows[3].Cells[strM].Value = decFormat(Convert.ToDecimal(volumedata[intColCnt].VolClaimRem));  //出来高未請求
+                dgv.Rows[3].Cells[strM].Value = MinusConvert(volumedata[intColCnt].VolClaimRem);          //出来高未請求
+                                                                                                          // Wakamatsu 20170308
+            if (volumedata[intColCnt].VolClaim != null)
+                // Wakamatsu 20170308
+                //dgv.Rows[4].Cells[strM].Value = decFormat(Convert.ToDecimal(volumedata[intColCnt].VolClaim));     //出来高請求
+                dgv.Rows[4].Cells[strM].Value = MinusConvert(volumedata[intColCnt].VolClaim);             //出来高請求
+                                                                                                          // Wakamatsu 20170308
+            if (volumedata[intColCnt].MonthlyClaim != null)
+                // Wakamatsu 20170308
+                //dgv.Rows[8].Cells[strM].Value = decFormat(Convert.ToDecimal(volumedata[intColCnt].MonthlyClaim)); //請求単月
+                dgv.Rows[8].Cells[strM].Value = MinusConvert(volumedata[intColCnt].MonthlyClaim);         //請求単月
+                                                                                                          // Wakamatsu 20170308
+            if (volumedata[intColCnt].ClaimDate != null)
+            {
+                DateTime dtClaimDate = Convert.ToDateTime(volumedata[intColCnt].ClaimDate);
+                dgv.Rows[10].Cells[strM].Value = dtClaimDate.ToString("yyyy/MM/dd");   //請求日
+            }
+
+            if (volumedata[intColCnt].VolPaid != null)
+                // Wakamatsu 20170308
+                //dgv.Rows[11].Cells[strM].Value = decFormat(Convert.ToDecimal(volumedata[intColCnt].VolPaid));     //入金単月
+                dgv.Rows[11].Cells[strM].Value = MinusConvert(volumedata[intColCnt].VolPaid);             //入金単月
+                                                                                                          // Wakamatsu 20170308
+
+            if (volumedata[intColCnt].PaidDate != null)
+            {
+                DateTime dtPaidDate = Convert.ToDateTime(volumedata[intColCnt].PaidDate);
+                dgv.Rows[13].Cells[strM].Value = dtPaidDate.ToString("yyyy/MM/dd");  //入金日
+            }
+
+            if (volumedata[intColCnt].MonthlyCost != null)
+                // Wakamatsu 20170308
+                //dgv.Rows[16].Cells[strM].Value = volumedata[intColCnt].MonthlyCost; //原価単月
+                dgv.Rows[16].Cells[strM].Value = MinusConvert(volumedata[intColCnt].MonthlyCost);     //原価単月
+                                                                                                      // Wakamatsu 20170308
+            if (volumedata[intColCnt].Comment != null)
+                dgv.Rows[21].Cells[strM].Value = volumedata[intColCnt].Comment;    //コメント
+            if (volumedata[intColCnt].CarryOverPlanned != null)
+            {
+                // Wakamatsu 20170308
+                //textBoxCarryOverPlanned.Text = DHandling.DecimaltoStr(Convert.ToDecimal(volumedata[intColCnt].CarryOverPlanned), "#,0");
+                textBoxCarryOverPlanned.Text = MinusConvert(volumedata[intColCnt].CarryOverPlanned);
+                // Wakamatsu 20170308
+            }
+
+            if (intColCnt == 0)
+            {
+                if (volumedata[intColCnt].Note != null)
+                    textBoxNote.Text = volumedata[intColCnt].Note;    //備考
+                // Wakamatsu
+                // Wakamatsu 20170322
+                //if (volumedata[intColCnt].Note2 != null)
+                //    textBoxNote2.Text = volumedata[intColCnt].Note2;      //備考2
+                // Wakamatsu 20170322
+            }
+            string strTaskState = Convert.ToString(volumedata[intColCnt].TaskStat);
+        }
+
+
+        private void ScreenDisplay()
+        {
+            if (iniPro) return;
+            grdSet = true;
+
+            initGridData();
+
+            for (int i = 0; i <= 12; i++)
+            {
+                ClrVolumeInf(i);
+            }
+
+            comboBoxTaskState.SelectedIndex = 0;
+            textBoxCarryOverPlanned.Text = "";
+            labelYearCompletionHigh.Text = "";
+            textBoxNote.Text = "";
+            // Wakamatsu
+            // Wakamatsu 20170322
+            //textBoxNote2.Text = "";
+
+            string officeCode = Convert.ToString(comboBoxOfficeCode.SelectedValue);
+            string department = (officeCode == "H") ? Convert.ToString(comboBoxDepartment.SelectedValue) : "";
+
+            //業務テーブル関連
+            SetTaskInfContents(comboBoxTaskCode.Text, officeCode, department);
+
+            //出来高データ取得（前年度）
+            dispPreYearVolumeData(comboBoxTaskCode.Text, Convert.ToInt32(comboBoxYear.Text), Convert.ToInt32(comboBoxYear.Text) - 1,
+                                    officeCode, department);
+
+            //出来高データ取得（今年度）
+            int curYear = Convert.ToInt32(comboBoxYear.Text);
+            int curMonth;
+
+            // Wakamatsu 
+            int[] monthArray = new int[] { 7, 8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6 };
+            int DisplyLimit = Array.IndexOf(monthArray, ClosingDate);
+            // Wakamatsu
+            this.SuspendLayout();
+            for (int i = 0; i < 12; i++)
+            {
+                curMonth = i + 7;
+                if (curMonth > 12) curMonth = curMonth - 12;
+                if (curMonth == 1) curYear++;
+                // Wakamatsu
+                if (i <= DisplyLimit)
+                    // Wakamatsu
+                    dispVolumeData(curMonth, comboBoxTaskCode.Text, curYear * 100 + curMonth, officeCode, department, i);
+            }
+            //原価
+            SetOriginalCost();
+            grdSet = false;
+
+            //自動計算処理
+            AutoCalc(dataGridView1);
+            this.ResumeLayout();
+
+
+            //#######################################################
+            //#######################################################
+            //#######################################################
+            checkExclusive();
+            //#######################################################
+            //#######################################################
+            //#######################################################
+        }
+
+
+        private void AutoCalc(DataGridView dgv)
+        {
+            // Wakamatsu
+            int[] monthArray = new int[] { 0, 7, 8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6 };
+            int DisplyLimit = Array.IndexOf(monthArray, ClosingDate);
+            // Wakamatsu
+
+            // Wakamatsu
+            //for ( int i = 0; i <= 12; i++)
+            for (int i = 0; i < monthArray.Length; i++)
+            {
+                // Wakamatsu
+                if (i <= DisplyLimit)
+                {
+                    SetCumulative(dgv, i);        //受注累計
+                    SetMonthlyTotal(dgv, i);      //月計
+                    SetTotalTradingVolume(dgv, i);//累計
+                    SetOverTime(dgv, i);          //残業務高
+                    SetResidualClaimHigh(dgv, i); //残請求高
+                    SetCumulativeM(dgv, i);       //請求累計
+                    SetUncompBusAccept(dgv, i);   //未成業務受入金
+                    SetCumulativeV(dgv, i);       //入金累計
+                    SetAccountsReceivable(dgv, i);//未収入金
+                    SetUncompBusAcceptM(dgv, i);  //未成業務受入金
+                    SetCumulativeMC(dgv, i);      //原価累計
+                    SetCostRate(dgv, i);          //原価率
+                }
+                // Wakamatsu
+            }
+        }
+
+
+        private void SetTaskInfContents(string taskCode, string officeCode, string department)
+        {
+            if (taskCode.Trim() == "") return;
+            SqlHandling sh = new SqlHandling();
+            string departmentSql = "";
+            if (department != "")
+                departmentSql = " AND D_V.Department = " + "'" + department + "'";
+
+            string sqlStr = "DISTINCT D_T.TaskName AS TaskName, D_T.StartDate AS StartDate, D_T.EndDate AS EndDate, D_T.OrdersForm AS OrdersForm, D_T.TaskLeader AS TaskLeader, D_T.ClaimForm AS ClaimForm, D_T.PayNote AS PayNote, D_TI.TaskCode AS TaskCode, M_P.PartnerName AS PartnerName, ISNULL(D_V.TaskStat, 0) AS TaskStat FROM D_Task D_T "
+                    + " INNER JOIN D_TaskInd D_TI ON D_T.TaskID = D_TI.TaskID "
+                    + " LEFT JOIN M_Partners M_P ON D_T.PartnerCode = M_P.PartnerCode "
+                    + " LEFT JOIN D_Volume D_V ON D_TI.TaskCode = D_V.TaskCode "
+                    + " AND D_TI.OfficeCode = D_V.OfficeCode AND D_V.YearMonth = " + "'" + comboBoxYear.Text + "07" + "'"
+                    + departmentSql
+                    + " WHERE D_TI.TaskCode = " + "'" + taskCode + "'"
+                    + " AND D_TI.OfficeCode =" + "'" + officeCode + "'";
+
+            System.Data.DataTable dt = sh.SelectFullDescription(sqlStr);
+
+            labelTaskName.Text = "";
+            labelSupplierName.Text = "";
+            labelStartDate.Text = "";
+            labelEndDate.Text = "";
+            labelOrdersForm.Text = "";
+            labelContact.Text = "";
+            labelClaimform.Text = "";
+            labelPayNote.Text = "";
+
+            if ((dt != null) && (dt.Rows.Count > 0))
+            {
+                DataRow dr = dt.Rows[0];
+                //業務名
+                if (dr["TaskName"] != null && dr["TaskName"] != DBNull.Value) labelTaskName.Text = Convert.ToString(dr["TaskName"]);
+                //取引先名
+                if (dr["PartnerName"] != null && dr["PartnerName"] != DBNull.Value) labelSupplierName.Text = Convert.ToString(dr["PartnerName"]);
+                //工期開始日
+                if (dr["StartDate"] != null && dr["StartDate"] != DBNull.Value)
+                {
+                    DateTime dateStartDate = Convert.ToDateTime(dr["StartDate"]);
+                    labelStartDate.Text = dateStartDate.ToString("yyyy/MM/dd");
+                }
+                //工期終了日
+                if (dr["EndDate"] != null && dr["EndDate"] != DBNull.Value)
+                {
+                    DateTime dateEndDate = Convert.ToDateTime(dr["EndDate"]);
+                    labelEndDate.Text = dateEndDate.ToString("yyyy/MM/dd");
+                }
+                //受注形態
+                if (dr["OrdersForm"] != null && dr["OrdersForm"] != DBNull.Value)
+                {
+                    labelOrdersForm.Text = (Convert.ToInt32(dr["OrdersForm"]) == 0) ? "請負" : "常傭";
+                }
+                //請求形態
+                if (dr["ClaimForm"] != null && dr["ClaimForm"] != DBNull.Value)
+                {
+                    labelClaimform.Text = (Convert.ToInt32(dr["ClaimForm"]) == 0) ? "月次" : "完成";
+                }
+
+                //担当者
+                if (dr["TaskLeader"] != null && dr["TaskLeader"] != DBNull.Value)
+                    labelContact.Text = Convert.ToString(dr["TaskLeader"]);
+
+                //支払条件
+                if (dr["PayNote"] != null && dr["PayNote"] != DBNull.Value) labelPayNote.Text = Convert.ToString(dr["PayNote"]);
+
+                ////支払条件
+                //if (dr["PayNote"] != null && dr["PayNote"] != DBNull.Value)
+                //    textBoxPayNote.Text = Convert.ToString(dr["PayNote"]);
+
+                //業務状態
+                if (dr["TaskStat"] != null && dr["TaskStat"] != DBNull.Value) comboBoxTaskState.SelectedIndex = Convert.ToInt32(dr["TaskStat"]);
+            }
+            else
+            {
+                comboBoxTaskState.SelectedIndex = 0;
+            }
+        }
+
+
+        private void ClrVolumeInf(int i)
+        {
+            foreach (var row in dataGridView1.Rows.Cast<DataGridViewRow>())
+            {
+                row.Cells[i].Value = "";
+            }
+        }
+
+
+        //private void CumulativeCalculation(DataGridView dgv, int i)
+        //{
+        //    SetCumulative(dgv, i);           //受注累計
+        //    SetMonthlyTotal(dgv, i);         //月計
+        //    SetTotalTradingVolume(dgv, i);   //出来高累計
+        //    SetOverTime(dgv, i);             //残業務高
+        //    SetCumulativeM(dgv, i);          //請求累計
+        //    SetCumulativeV(dgv, i);          //入金累計
+        //    SetResidualClaimHigh(dgv, i);    //残請求高
+        //    SetUncompBusAccept(dgv, i);      //未成業務受入金
+        //    SetCumulativeMC(dgv, i);         //原価累計
+        //    SetCostRate(dgv, i);             //原価率
+        //    SetAccountsReceivable(dgv, i);   //未収入金
+        //    SetUncompBusAcceptM(dgv, i);     //未成業務受入金
+        //}
+
+
+        //受注累計
+        //private void SetCumulative(int i)
+        private void SetCumulative(DataGridView dgv, int i)
+        {
+            if (i == 0)
+            {
+                //if ((dgv.Rows[0].Cells[i].Value != null) && (dgv.Rows[0].Cells[i].Value.ToString().Trim() != ""))
+                // Wakamatsu
+                if (!checkCellValue(dgv, i))
+                // Wakamatsu
+                {
+                    if (!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[0].Cells[i].Value)))
+                    {
+                        dgv.Rows[1].Cells[i].Value = dgv.Rows[0].Cells[i].Value;
+                        // Wakamatsu 20170308
+                        //totalCumulativeAry[i] = Convert.ToDecimal(dgv.Rows[0].Cells[i].Value);
+                        totalCumulativeAry[i] = SignConvert(dgv.Rows[0].Cells[i].Value);
+                        // Wakamatsu 20170308
+                    }
+                    // Wakamatsu
+                    else
+                    {
+                        dgv.Rows[1].Cells[i].Value = 0;
+                        totalCumulativeAry[i] = 0;
+                    }
+                    // Wakamatsu
+                }
+                return;
+            }
+
+            dgv.Rows[1].Cells[i].Value = "";//受注累計
+
+            // Wakamatsu
+            ////前年、各月の受注単月データを取得
+            //decimal cumulative = 0;
+
+            ////SUM($F$6:G6)
+            ////if ((dgv.Rows[0].Cells[i].Value != null) && (dgv.Rows[0].Cells[i].Value.ToString().Trim() != ""))
+            //if(!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[0].Cells[i].Value)))
+            //    cumulative = Convert.ToDecimal(dgv.Rows[0].Cells[i].Value);
+            //totalCumulativeAry[i] = cumulative + totalCumulativeAry[i - 1];
+            //dgv.Rows[1].Cells[i].Value = DHandling.DecimaltoStr(totalCumulativeAry[i],"#,0");
+
+            ////IF(COUNT(F6,F8:F10,F15,F18,F23)>1))
+            //if(checkCellValue(dgv,i))
+            //{
+            //    //SUM(H6:$R$)
+            //    Decimal totalCumulativeWk = 0;
+            //    if(i != 0)
+            //    {
+            //        for(int iCnt = i + 1;iCnt < 13;iCnt++)
+            //        {
+            //            cumulative = 0;
+            //            if(!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[0].Cells[iCnt].Value)))
+            //                cumulative = Convert.ToDecimal(dgv.Rows[0].Cells[iCnt].Value);
+            //            totalCumulativeWk = totalCumulativeWk + cumulative;
+            //        }
+            //    }
+            //    //IF(SUM(F$6:G6)*SUM(H6:$R$))
+            //    if((totalCumulativeAry[i] * totalCumulativeWk) == 0)
+            //        dgv.Rows[1].Cells[i].Value = "";
+            //}
+
+            Calculation calc = new Calculation();
+            // 受注累計算出
+            // Wakamatsu 20170308
+            //dgv.Rows[1].Cells[i].Value = calc.Cumulative(dgv, i, 0, totalCumulativeAry[i - 1], checkCellValue(dgv, i), "#,0", out totalCumulativeAry[i]);
+            dgv.Rows[1].Cells[i].Value = calc.Cumulative(dgv, i, 0, totalCumulativeAry[i - 1], checkCellValue(dgv, i), "#,0", out totalCumulativeAry[i]);
+            // Wakamatsu 20170308
+            // Wakamatsu
+
+            //年度内完工高更新
+            //繰越予定額
+            decimal decCarryOverPlanned = 0;
+            if (textBoxCarryOverPlanned.Text.ToString().Trim() != "")
+                // Wakamatsu 20170308
+                //decCarryOverPlanned = Convert.ToDecimal(textBoxCarryOverPlanned.Text);
+                decCarryOverPlanned = SignConvert(textBoxCarryOverPlanned.Text);
+            // Wakamatsu 20170308
+            // Wakamatsu
+            //decimal decYearCompletionHigh = totalCumulativeAry[i] - decCarryOverPlanned;
+            //textBoxYearCompHigh.Text = totalCumulativeAry[i].ToString();
+            decimal decYearCompletionHigh = totalCumulativeAry[i] - totalCumulativeAry[0] - decCarryOverPlanned;
+            textBoxYearCompHigh.Text = (totalCumulativeAry[i] - totalCumulativeAry[0]).ToString();
+            // Wakamatsu
+
+            labelYearCompletionHigh.Text = "";
+            // Wakamatsu
+            for (int j = 1; j <= i; j++)
+            // Wakamatsu
+            {
+                // Wakamatsu
+                if (!string.IsNullOrEmpty(Convert.ToString(dgv.Rows[0].Cells[j].Value)))
+                // Wakamatsu
+                {
+                    if (decYearCompletionHigh != 0)
+                    {
+                        // Wakamatsu 20170308
+                        //if (decYearCompletionHigh > 0)
+                        //{
+                        //    labelYearCompletionHigh.Text = DHandling.DecimaltoStr(Convert.ToDecimal(decYearCompletionHigh), "#,0");
+                        //}
+                        //else
+                        //{
+                        //    string strYearCompletionHigh = DHandling.DecimaltoStr(Convert.ToDecimal(decYearCompletionHigh), "#,0");
+                        //    labelYearCompletionHigh.Text = strYearCompletionHigh.Replace("-", "△");
+                        //}
+                        //return;
+                        labelYearCompletionHigh.Text = MinusConvert(decYearCompletionHigh);
+                        // Wakamatsu 20170308
+                    }
+                }
+            }
+
+        }
+
+
+        //月計
+        private void SetMonthlyTotal(DataGridView dgv, int i)
+        {
+            dgv.Rows[5].Cells[i].Value = "";
+
+            // Wakamatsu
+            ////未成業務
+            //decimal volUncomp = 0;
+            //if(!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[2].Cells[i].Value)))
+            //    volUncomp = Convert.ToDecimal(dgv.Rows[2].Cells[i].Value);
+
+            ////未請求
+            //decimal volClaimRem = 0;
+            //if(!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[3].Cells[i].Value)))
+            //    volClaimRem = Convert.ToDecimal(dgv.Rows[3].Cells[i].Value);
+
+            ////請求
+            //decimal volClaim = 0;
+            //if(!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[4].Cells[i].Value)))
+            //    volClaim = Convert.ToDecimal(dgv.Rows[4].Cells[i].Value);
+            // Wakamatsu
+
+            decimal monthlyTotal = 0;
+
+            if (!checkCellValue(dgv, i))
+            {
+                // Wakamatsu
+                //monthlyTotal = volUncomp + volClaimRem + volClaim;
+                Calculation calc = new Calculation();
+                // 月計算出
+                monthlyTotal = calc.MonthlyTotal(dgv, i, 2, 3, 4);
+                // Wakamatsu
+                // Wakamatsu 20170308
+                //dgv.Rows[5].Cells[i].Value = DHandling.DecimaltoStr(monthlyTotal, "#,0");//出来高 単月 月計
+                dgv.Rows[5].Cells[i].Value = MinusConvert(monthlyTotal);     //出来高 単月 月計
+                // Wakamatsu 20170308
+            }
+        }
+
+
+        //出来高累計
+        private void SetTotalTradingVolume(DataGridView dgv, int i)
+        {
+            if (i == 0)
+            {
+                //if ((dgv.Rows[5].Cells[i].Value != null) && (dgv.Rows[5].Cells[i].Value.ToString().Trim() != ""))
+                // Wakamatsu
+                if (!checkCellValue(dgv, i))
+                // Wakamatsu
+                {
+                    if (!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[5].Cells[i].Value)))
+                    {
+                        dgv.Rows[6].Cells[i].Value = dgv.Rows[5].Cells[i].Value;
+                        // Wakamatsu 20170308
+                        //totalTradingVolumeAry[i] = Convert.ToDecimal(dgv.Rows[5].Cells[i].Value);
+                        totalTradingVolumeAry[i] = SignConvert(dgv.Rows[5].Cells[i].Value);
+                        // Wakamatsu 20170308
+                    }
+                    // Wakamatsu
+                    else
+                    {
+                        dgv.Rows[6].Cells[i].Value = 0;
+                        totalTradingVolumeAry[i] = 0;
+                    }
+                    // Wakamatsu
+                }
+                return;
+            }
+
+            dgv.Rows[6].Cells[i].Value = "";//受注累計
+
+            // Wakamatsu
+            ////前年、各月の受注単月データを取得
+            //decimal tradingVolume = 0;
+
+            ////SUM($F12:G$12)
+            ////if ((dgv.Rows[5].Cells[i].Value != null) && (dgv.Rows[5].Cells[i].Value.ToString().Trim() != ""))
+            //if(!String.IsNullOrEmpty( Convert.ToString( dgv.Rows[5].Cells[i].Value ) ))
+            //    tradingVolume = Convert.ToDecimal( dgv.Rows[5].Cells[i].Value );
+
+            //if(i != 0)
+            //    totalTradingVolumeAry[i] = tradingVolume + totalTradingVolumeAry[i - 1];
+
+            //dgv.Rows[6].Cells[i].Value = DHandling.DecimaltoStr( totalTradingVolumeAry[i], "#,0" );
+
+            ////IF(COUNT(G12)>1))
+            ////if ((dgv.Rows[5].Cells[i].Value == null) || (dgv.Rows[5].Cells[i].Value.ToString().Trim() == ""))   //出来高 月計
+            //if(String.IsNullOrEmpty( Convert.ToString( dgv.Rows[5].Cells[i].Value ) ))   //出来高 月計
+            //{
+            //    //SUM(H12:$R$12)
+            //    Decimal totalTradingVolumeWk = 0;
+            //    tradingVolume = 0;
+            //    for(int iCnt = i + 1 ; iCnt < 13 ; iCnt++)
+            //    {
+            //        //未成業務
+            //        decimal volUncomp = 0;
+            //        if(!String.IsNullOrEmpty( Convert.ToString( dgv.Rows[2].Cells[iCnt].Value ) ))
+            //            volUncomp = Convert.ToDecimal( dgv.Rows[2].Cells[iCnt].Value );
+
+            //        //未請求
+            //        decimal volClaimRem = 0;
+            //        if(!String.IsNullOrEmpty( Convert.ToString( dgv.Rows[3].Cells[iCnt].Value ) ))
+            //            volClaimRem = Convert.ToDecimal( dgv.Rows[3].Cells[iCnt].Value );
+
+            //        //請求
+            //        decimal volClaim = 0;
+            //        if(!String.IsNullOrEmpty( Convert.ToString( dgv.Rows[4].Cells[iCnt].Value ) ))
+            //            volClaim = Convert.ToDecimal( dgv.Rows[4].Cells[iCnt].Value );
+            //        //月計を求める
+            //        tradingVolume = volUncomp + volClaimRem + volClaim;
+            //        totalTradingVolumeWk = totalTradingVolumeWk + tradingVolume;
+            //    }
+            //    //IF(SUM(F$12:H12)*SUM(I12:$R$12) = 0,"",SUM($F12:H$12))
+            //    if(( totalTradingVolumeAry[i] * totalTradingVolumeWk ) == 0)
+            //        dgv.Rows[6].Cells[i].Value = "";
+            //}
+
+            Calculation calc = new Calculation();
+            // 出来高累計算出
+            dgv.Rows[6].Cells[i].Value = calc.TotalTradingVolume(dgv, i, 5, 2, 3, 4, totalTradingVolumeAry[i - 1], "#,0", out totalTradingVolumeAry[i]);
+            // Wakamatsu
+
+            // Wakamatsu 20170308
+            //TotalCumulativeOverCheck(dgv, 6, i);  //受注額を越えたかのチェック
+        }
+
+        //請求累計
+        private void SetCumulativeM(DataGridView dgv, int i)
+        {
+            if (i == 0)
+            {
+                //if ((dgv.Rows[8].Cells[i].Value != null) && (dgv.Rows[8].Cells[i].Value.ToString().Trim() != ""))
+                // Wakamatsu
+                if (!checkCellValue(dgv, i))
+                // Wakamatsu
+                {
+                    if (!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[8].Cells[i].Value)))
+                    {
+                        dgv.Rows[9].Cells[i].Value = dgv.Rows[8].Cells[i].Value;
+                        // Wakamatsu 20170308
+                        //totalCumulativeMAry[i] = Convert.ToDecimal(dgv.Rows[8].Cells[i].Value);
+                        totalCumulativeMAry[i] = SignConvert(dgv.Rows[8].Cells[i].Value);
+                        // Wakamatsu 20170308
+                    }
+                    // Wakamatsu
+                    else
+                    {
+                        dgv.Rows[9].Cells[i].Value = 0;
+                        totalCumulativeMAry[i] = 0;
+                    }
+                    // Wakamatsu
+                }
+                return;
+            }
+
+
+            dgv.Rows[9].Cells[i].Value = "";//受注累計
+
+            // Wakamatsu
+            ////前年、各月の受注単月データを取得
+            //decimal cumulativeM = 0;
+
+            ////SUM($F$15:G15)
+            ////if ((dgv.Rows[8].Cells[i].Value != null) && (dgv.Rows[8].Cells[i].Value.ToString().Trim() != ""))
+            //if(!String.IsNullOrEmpty( Convert.ToString( dgv.Rows[8].Cells[i].Value ) ))
+            //    cumulativeM = Convert.ToDecimal( dgv.Rows[8].Cells[i].Value );
+            //totalCumulativeMAry[i] = cumulativeM + totalCumulativeMAry[i - 1];
+            //dgv.Rows[9].Cells[i].Value = DHandling.DecimaltoStr( totalCumulativeMAry[i], "#,0" );
+
+            //////IF(COUNT(F6,F8:F10,F15,F18,F23)>1))
+            //if(checkCellValue( dgv, i ))
+            //{
+            //    //SUM(H15:$R$15)
+            //    Decimal totalCumulativeMWk = 0;
+            //    if(i != 0)
+            //    {
+            //        //
+            //        for(int iCnt = i + 1 ; iCnt < 13 ; iCnt++)
+            //        {
+            //            cumulativeM = 0;
+            //            //if ((dgv.Rows[8].Cells[iCnt].Value != null) && (dgv.Rows[8].Cells[iCnt].Value.ToString().Trim() != ""))
+            //            if(!String.IsNullOrEmpty( Convert.ToString( dgv.Rows[8].Cells[iCnt].Value ) ))
+            //                cumulativeM = Convert.ToDecimal( dgv.Rows[8].Cells[iCnt].Value );
+            //            totalCumulativeMWk = totalCumulativeMWk + cumulativeM;
+            //        }
+            //    }
+            //    //IF(SUM(F$6:G6)*SUM(H6:$R$))
+            //    if(( totalCumulativeMAry[i] * totalCumulativeMWk ) == 0)
+            //        dgv.Rows[9].Cells[i].Value = "";
+            //}
+
+            Calculation calc = new Calculation();
+            // 請求累計算出
+            dgv.Rows[9].Cells[i].Value = calc.Cumulative(dgv, i, 8, totalCumulativeMAry[i - 1], checkCellValue(dgv, i), "#,0", out totalCumulativeMAry[i]);
+            // Wakamatsu
+
+            // Wakamatsu 20170308
+            //TotalCumulativeOverCheck(dgv, 9, i);  //受注額を越えたかのチェック
+        }
+
+
+        //入金累計
+        private void SetCumulativeV(DataGridView dgv, int i)
+        {
+            if (i == 0)
+            {
+                //if ((dgv.Rows[11].Cells[i].Value != null) && (dgv.Rows[11].Cells[i].Value.ToString().Trim() != ""))
+                // Wakamatsu
+                if (!checkCellValue(dgv, i))
+                // Wakamatsu
+                {
+                    if (!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[11].Cells[i].Value)))
+                    {
+                        dgv.Rows[12].Cells[i].Value = dgv.Rows[11].Cells[i].Value;
+                        // Wakamatsu 20170308
+                        //totalCumulativeVAry[i] = Convert.ToDecimal(dgv.Rows[11].Cells[i].Value);
+                        totalCumulativeVAry[i] = SignConvert(dgv.Rows[11].Cells[i].Value);
+                        // Wakamatsu 20170308
+                    }
+                    // Wakamatsu
+                    else
+                    {
+                        dgv.Rows[12].Cells[i].Value = 0;
+                        totalCumulativeVAry[i] = 0;
+                    }
+                    // Wakamatsu
+                }
+                return;
+            }
+
+            dgv.Rows[12].Cells[i].Value = "";//入金累計
+
+            // Wakamatsu
+            //decimal cumulativeV = 0;
+
+            ////SUM($F$18:G18)
+            ////if ((dgv.Rows[11].Cells[i].Value != null) && (dgv.Rows[11].Cells[i].Value.ToString().Trim() != ""))
+            //if(!String.IsNullOrEmpty( Convert.ToString( dgv.Rows[11].Cells[i].Value ) ))
+            //    cumulativeV = Convert.ToDecimal( dgv.Rows[11].Cells[i].Value );
+            //totalCumulativeVAry[i] = cumulativeV + totalCumulativeVAry[i - 1];
+            //dgv.Rows[12].Cells[i].Value = DHandling.DecimaltoStr( totalCumulativeVAry[i], "#,0" );
+
+            ////IF(COUNT(F6,F8:F10,F15,F18,F23)>1))
+            //if(checkCellValue( dgv, i ))
+            //{
+            //    //SUM(H18:$R$18)
+            //    Decimal totalCumulativeVWk = 0;
+            //    if(i != 0)
+            //    {
+            //        for(int iCnt = i + 1 ; iCnt < 13 ; iCnt++)
+            //        {
+            //            cumulativeV = 0;
+            //            //if ((dgv.Rows[11].Cells[iCnt].Value != null) && (dgv.Rows[11].Cells[iCnt].Value.ToString().Trim() != ""))
+            //            if(!String.IsNullOrEmpty( Convert.ToString( dgv.Rows[11].Cells[iCnt].Value ) ))
+            //                cumulativeV = Convert.ToDecimal( dgv.Rows[11].Cells[iCnt].Value );
+            //            totalCumulativeVWk = totalCumulativeVWk + cumulativeV;
+            //        }
+            //    }
+            //    //IF(SUM(F$18:G18)*SUM(H$18:$R18))
+            //    if(( totalCumulativeVAry[i] * totalCumulativeVWk ) == 0)
+            //        dgv.Rows[12].Cells[i].Value = "";
+            //}
+
+            Calculation calc = new Calculation();
+            // 入金累計算出
+            dgv.Rows[12].Cells[i].Value = calc.Cumulative(dgv, i, 11, totalCumulativeVAry[i - 1], checkCellValue(dgv, i), "#,0", out totalCumulativeVAry[i]);
+            // Wakamatsu
+
+            // Wakamatsu 20170308
+            //TotalCumulativeOverCheck(dgv, 12, i);  //受注額を越えたかのチェック
+        }
+
+
+        //原価累計
+        private void SetCumulativeMC(DataGridView dgv, int i)
+        {
+            if (i == 0)
+            {
+                //if ((dgv.Rows[16].Cells[i].Value != null) && (dgv.Rows[16].Cells[i].Value.ToString().Trim() != ""))
+                // Wakamatsu
+                if (!checkCellValue(dgv, i))
+                // Wakamatsu
+                {
+                    if (!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[16].Cells[i].Value)))
+                    {
+                        dgv.Rows[17].Cells[i].Value = dgv.Rows[16].Cells[i].Value;
+                        // Wakamatsu 20170308
+                        //totalCumulativeMCAry[i] = Convert.ToDecimal(dgv.Rows[16].Cells[i].Value);
+                        totalCumulativeMCAry[i] = SignConvert(dgv.Rows[16].Cells[i].Value);
+                        // Wakamatsu 20170308
+                    }
+                    // Wakamatsu
+                    else
+                    {
+                        dgv.Rows[17].Cells[i].Value = 0;
+                        totalCumulativeMCAry[i] = 0;
+                    }
+                    // Wakamatsu
+                }
+                return;
+            }
+
+            dgv.Rows[17].Cells[i].Value = "";//原価累計
+
+            // Wakamatsu
+            //decimal cumulativeMC = 0;
+
+            ////SUM($F$18:G18)
+            ////if ((dgv.Rows[16].Cells[i].Value != null) && (dgv.Rows[16].Cells[i].Value.ToString().Trim() != ""))
+            //if(!String.IsNullOrEmpty( Convert.ToString( dgv.Rows[16].Cells[i].Value ) ))
+            //    cumulativeMC = Convert.ToDecimal( dgv.Rows[16].Cells[i].Value );
+            //totalCumulativeMCAry[i] = cumulativeMC + totalCumulativeMCAry[i - 1];
+            //dgv.Rows[17].Cells[i].Value = DHandling.DecimaltoStr( totalCumulativeMCAry[i], "#,0" );
+
+            ////IF(COUNT(F6,F8:F10,F15,F18,F23)>1))
+            //if(checkCellValue( dgv, i ))
+            //{
+            //    //SUM(H23:$R$23)
+            //    Decimal totalCumulativeMCWk = 0;
+            //    if(i != 0)
+            //    {
+            //        for(int iCnt = i + 1 ; iCnt < 13 ; iCnt++)
+            //        {
+            //            cumulativeMC = 0;
+            //            //if ((dgv.Rows[16].Cells[iCnt].Value != null) && (dgv.Rows[16].Cells[iCnt].Value.ToString().Trim() != ""))
+            //            if(!String.IsNullOrEmpty( Convert.ToString( dgv.Rows[16].Cells[iCnt].Value ) ))
+            //                cumulativeMC = Convert.ToDecimal( dgv.Rows[16].Cells[iCnt].Value );
+            //            totalCumulativeMCWk = totalCumulativeMCWk + cumulativeMC;
+            //        }
+            //    }
+            //    //IF(SUM(F$18:G18)*SUM(H$18:$R18))
+            //    if(( totalCumulativeMCAry[i] * totalCumulativeMCWk ) == 0)
+            //        dgv.Rows[17].Cells[i].Value = "";
+            //}
+
+            Calculation calc = new Calculation();
+            // 原価累計算出
+            dgv.Rows[17].Cells[i].Value = calc.Cumulative(dgv, i, 16, totalCumulativeMCAry[i - 1], checkCellValue(dgv, i), "#,0", out totalCumulativeMCAry[i]);
+            // Wakamatsu
+        }
+
+
+        //残業務高
+        private void SetOverTime(DataGridView dgv, int i)
+        {
+            dgv.Rows[7].Cells[i].Value = "";//残業務高
+
+            // Wakamatsu
+            //decimal cumulative = 0;
+            //decimal tradingVolume = 0;
+            // Wakamatsu
+            // Wakamatsu 20170308
+            //decimal overTime = 0;
+
+            //IF(COUNT(F7,F13)>1))
+            //if (((dgv.Rows[1].Cells[i].Value != null) && (dgv.Rows[1].Cells[i].Value.ToString() != "")) ||   //受注 累計
+            //    ((dgv.Rows[6].Cells[i].Value != null) && (dgv.Rows[6].Cells[i].Value.ToString() != "")))     //出来高累計
+            if ((!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[1].Cells[i].Value))) ||
+                (!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[6].Cells[i].Value))))
+            {
+                // Wakamatsu
+                ////SUM($F$6:G6)
+                //Decimal totalCumulativeWk = 0;
+                //Decimal totalTradingVolumeWk = 0;
+
+                //for(int iCnt = 0;iCnt < i + 1;iCnt++)
+                //{
+                //    //受注累計
+                //    cumulative = 0;
+                //    //if ((dgv.Rows[0].Cells[iCnt].Value != null) && (dgv.Rows[0].Cells[iCnt].Value.ToString().Trim() != ""))
+                //    if(!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[0].Cells[iCnt].Value)))
+                //        cumulative = Convert.ToDecimal(dgv.Rows[0].Cells[iCnt].Value);
+
+                //    totalCumulativeWk = totalCumulativeWk + cumulative;
+
+
+                //    //出来高累計
+                //    //未成業務
+                //    decimal volUncomp = 0;
+                //    //if ((dgv.Rows[2].Cells[iCnt].Value != null) && (dgv.Rows[2].Cells[iCnt].Value.ToString() != ""))
+                //    if(!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[2].Cells[iCnt].Value)))
+                //        volUncomp = Convert.ToDecimal(dgv.Rows[2].Cells[iCnt].Value);
+
+                //    //未請求
+                //    decimal volClaimRem = 0;
+                //    //if ((dgv.Rows[3].Cells[iCnt].Value != null) && (dgv.Rows[3].Cells[iCnt].Value.ToString() != ""))
+                //    if(!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[3].Cells[iCnt].Value)))
+                //        volClaimRem = Convert.ToDecimal(dgv.Rows[3].Cells[iCnt].Value);
+
+                //    //請求
+                //    decimal volClaim = 0;
+                //    //if ((dgv.Rows[4].Cells[iCnt].Value != null) && (dgv.Rows[4].Cells[iCnt].Value.ToString() != ""))
+                //    if(!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[4].Cells[iCnt].Value)))
+                //        volClaim = Convert.ToDecimal(dgv.Rows[4].Cells[iCnt].Value);
+
+                //    //月計を求める
+                //    tradingVolume = volUncomp + volClaimRem + volClaim;
+                //    totalTradingVolumeWk = totalTradingVolumeWk + tradingVolume;
+                //}
+
+                ////SUM($F$6:G6)-SUM($F$12:G12)
+                //overTime = (totalCumulativeWk - totalTradingVolumeWk);
+                Calculation calc = new Calculation();
+                // 未成業務受入金算出
+                // Wakamatsu 20170308
+                //overTime = calc.SubtrahendVol(dgv, i, 0, 2, 3, 4);
+                // Wakamatsu
+
+                //dgv.Rows[7].Cells[i].Value = DHandling.DecimaltoStr(overTime, "#,0");
+                //if (overTime < 0)
+                //{
+                //    string strOverTime = DHandling.DecimaltoStr(overTime, "#,0");
+                //    dgv.Rows[7].Cells[i].Value = strOverTime.Replace("-", "△");
+                //}
+                dgv.Rows[7].Cells[i].Value = MinusConvert(calc.SubtrahendVol(dgv, i, 0, 2, 3, 4));
+                // Wakamatsu 20170308
+            }
+        }
+
+
+        //残請求高
+        private void SetResidualClaimHigh(DataGridView dgv, int i)
+        {
+            dgv.Rows[14].Cells[i].Value = "";//残請求高
+            dgv[i, 14].Style.BackColor = Color.PaleGreen;
+
+            // Wakamatsu
+            //decimal decTradingVolume = 0;
+            //decimal cumulativeM = 0;
+            // Wakamatsu
+            decimal decResidualClaimHigh = 0;
+
+            //IF(COUNT(F13,F16)>1))
+            //if (((dgv.Rows[6].Cells[i].Value != null) && (dgv.Rows[6].Cells[i].Value.ToString() != "")) ||   //出来高累計
+            //    ((dgv.Rows[9].Cells[i].Value != null) && (dgv.Rows[9].Cells[i].Value.ToString() != "")))     //請求累計
+            if ((!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[6].Cells[i].Value))) ||
+                (!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[9].Cells[i].Value))))
+            {
+                // Wakamatsu
+                ////SUM($F$12:G12)
+                //Decimal totalTradingVolumeWk = 0;
+                //Decimal totalCumulativeMWk = 0;
+
+                //for(int iCnt = 0;iCnt < i + 1;iCnt++)
+                //{
+                //    //出来高累計
+                //    //未成業務
+                //    decimal volUncomp = 0;
+                //    //if ((dgv.Rows[2].Cells[iCnt].Value != null) && (dgv.Rows[2].Cells[iCnt].Value.ToString() != ""))
+                //    if(!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[2].Cells[iCnt].Value)))
+                //        volUncomp = Convert.ToDecimal(dgv.Rows[2].Cells[iCnt].Value);
+
+                //    //未請求
+                //    decimal volClaimRem = 0;
+                //    //if ((dgv.Rows[3].Cells[iCnt].Value != null) && (dgv.Rows[3].Cells[iCnt].Value.ToString() != ""))
+                //    if(!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[3].Cells[iCnt].Value)))
+                //        volClaimRem = Convert.ToDecimal(dgv.Rows[3].Cells[iCnt].Value);
+
+                //    //請求
+                //    decimal volClaim = 0;
+                //    //if ((dgv.Rows[4].Cells[iCnt].Value != null) && (dgv.Rows[4].Cells[iCnt].Value.ToString() != ""))
+                //    if(!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[4].Cells[iCnt].Value)))
+                //        volClaim = Convert.ToDecimal(dgv.Rows[4].Cells[iCnt].Value);
+
+                //    //月計を求める
+                //    decTradingVolume = volUncomp + volClaimRem + volClaim;
+                //    totalTradingVolumeWk = totalTradingVolumeWk + decTradingVolume;
+
+                //    //請求累計
+                //    cumulativeM = 0;
+                //    //if ((dgv.Rows[8].Cells[iCnt].Value != null) && (dgv.Rows[8].Cells[iCnt].Value.ToString().Trim() != ""))
+                //    if(!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[8].Cells[iCnt].Value)))
+                //        cumulativeM = Convert.ToDecimal(dgv.Rows[8].Cells[iCnt].Value);
+
+                //    totalCumulativeMWk = totalCumulativeMWk + cumulativeM;
+                //}
+
+                ////SUM($F$12:G12)-SUM($F$15:G15)
+                //decResidualClaimHigh = (totalTradingVolumeWk - totalCumulativeMWk);
+                Calculation calc = new Calculation();
+                // 残請求高算出
+                decResidualClaimHigh = calc.MinuendVol(dgv, i, 2, 3, 4, 8);
+                // Wakamatsu
+
+                if (decResidualClaimHigh > 0)
+                {
+                    // Wakamatsu 20170308
+                    //dgv.Rows[14].Cells[i].Value = DHandling.DecimaltoStr(decResidualClaimHigh, "#,0");
+                    dgv.Rows[14].Cells[i].Value = MinusConvert(decResidualClaimHigh);
+                    // Wakamatsu 20170308
+                    if (buttonSave.Enabled == true)
+                        dgv[i, 14].Style.BackColor = Color.Pink;
+                }
+            }
+        }
+
+
+        //未成業務受入金
+        private void SetUncompBusAccept(DataGridView dgv, int i)
+        {
+            dgv.Rows[15].Cells[i].Value = "";//未成業務受入金
+
+            // Wakamatsu
+            //decimal tradingVolume = 0;
+            //decimal cumulativeM = 0;
+            // Wakamatsu
+            decimal uncompBusAccept = 0;
+
+            //IF(COUNT(F13,F16)>1))
+            //if (((dgv.Rows[9].Cells[i].Value != null) && (dgv.Rows[9].Cells[i].Value.ToString() != "")) ||   //請求累計
+            //    ((dgv.Rows[6].Cells[i].Value != null) && (dgv.Rows[6].Cells[i].Value.ToString() != "")))     //出来高累計
+            if ((!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[6].Cells[i].Value))) ||
+                (!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[9].Cells[i].Value))))
+            {
+                // Wakamatsu
+                ////SUM($F$12:G12)
+                //Decimal totalCumulativeMWk = 0;
+                //Decimal totalTradingVolumeWk = 0;
+
+                //for(int iCnt = 0;iCnt < i + 1;iCnt++)
+                //{
+                //    //請求累計
+                //    cumulativeM = 0;
+                //    //if ((dgv.Rows[8].Cells[iCnt].Value != null) && (dgv.Rows[8].Cells[iCnt].Value.ToString().Trim() != ""))
+                //    if(!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[8].Cells[iCnt].Value)))
+                //        cumulativeM = Convert.ToDecimal(dgv.Rows[8].Cells[iCnt].Value);
+
+                //    totalCumulativeMWk = totalCumulativeMWk + cumulativeM;
+
+                //    //出来高累計
+                //    //未成業務
+                //    decimal volUncomp = 0;
+                //    //if ((dgv.Rows[2].Cells[iCnt].Value != null) && (dgv.Rows[2].Cells[iCnt].Value.ToString() != ""))
+                //    if(!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[2].Cells[iCnt].Value)))
+                //        volUncomp = Convert.ToDecimal(dgv.Rows[2].Cells[iCnt].Value);
+
+                //    //未請求
+                //    decimal volClaimRem = 0;
+                //    //if ((dgv.Rows[3].Cells[iCnt].Value != null) && (dgv.Rows[3].Cells[iCnt].Value.ToString() != ""))
+                //    if(!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[3].Cells[iCnt].Value)))
+                //        volClaimRem = Convert.ToDecimal(dgv.Rows[3].Cells[iCnt].Value);
+
+                //    //請求
+                //    decimal volClaim = 0;
+                //    //if ((dgv.Rows[4].Cells[iCnt].Value != null) && (dgv.Rows[4].Cells[iCnt].Value.ToString() != ""))
+                //    if(!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[4].Cells[iCnt].Value)))
+                //        volClaim = Convert.ToDecimal(dgv.Rows[4].Cells[iCnt].Value);
+
+                //    //月計を求める
+                //    tradingVolume = volUncomp + volClaimRem + volClaim;
+                //    totalTradingVolumeWk = totalTradingVolumeWk + tradingVolume;
+
+                //}
+
+                //SUM($F$15:G15) - SUM($F$12:G12)
+                //uncompBusAccept = (totalCumulativeMWk - totalTradingVolumeWk);
+                Calculation calc = new Calculation();
+                // 未成業務受入金算出
+                uncompBusAccept = calc.SubtrahendVol(dgv, i, 8, 2, 3, 4);
+                // Wakamatsu
+                if (uncompBusAccept > 0)
+                    // Wakamatsu 20170308
+                    //dgv.Rows[15].Cells[i].Value = DHandling.DecimaltoStr(uncompBusAccept, "#,0");
+                    dgv.Rows[15].Cells[i].Value = MinusConvert(uncompBusAccept);
+                // Wakamatsu 20170308
+            }
+        }
+
+
+        //原価率
+        private void SetCostRate(DataGridView dgv, int i)
+        {
+            // Wakamatsu
+            //decimal tradingVolume = 0;
+            //decimal cumulativeMC = 0;
+            //dgv.Rows[18].Cells[i].Value = ""; //原価率
+            ////if ((dgv.Rows[6].Cells[i].Value == null) || (dgv.Rows[6].Cells[i].Value.ToString().Trim() == "") || (dgv.Rows[6].Cells[i].Value.ToString().Trim() == "0"))
+            //if (String.IsNullOrEmpty(Convert.ToString(dgv.Rows[6].Cells[i].Value)) || (dgv.Rows[6].Cells[i].Value.ToString().Trim() == "0"))
+            //    return;
+
+            //tradingVolume = Convert.ToDecimal(dgv.Rows[6].Cells[i].Value);
+
+            ////IF(COUNT(G24)=1,F24/F13,"")
+            ////if ((dgv.Rows[17].Cells[i].Value != null) && (dgv.Rows[17].Cells[i].Value.ToString().Trim() != ""))
+            //// Wakamatsu
+            ////if (!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[7].Cells[i].Value)))
+            //if (!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[17].Cells[i].Value)))
+            //{
+            //    decimal decCostRate = 0;
+            //    string strCostRate = "";
+            //    cumulativeMC = Convert.ToDecimal(dgv.Rows[17].Cells[i].Value);
+            //    //F24/F13,""
+            //    decCostRate = (cumulativeMC / tradingVolume);
+            //    strCostRate = decCostRate.ToString("P");
+            //    dgv.Rows[18].Cells[i].Value = strCostRate.Replace(",", "");
+            //}
+            //uncompBusAccept = (totalCumulativeMWk - totalTradingVolumeWk);
+            Calculation calc = new Calculation();
+            // 原価算出
+            dgv.Rows[18].Cells[i].Value = calc.CostRate(dgv, i, 6, 17);
+            // Wakamatsu
+        }
+
+
+        //未収入金
+        private void SetAccountsReceivable(DataGridView dgv, int i)
+        {
+            dgv.Rows[19].Cells[i].Value = "";             //未収入金
+            dgv[i, 19].Style.BackColor = Color.PaleGreen;
+            // Wakamatsu
+            //decimal tradingVolume = 0;                           //出来高月計
+            //decimal cumulativeM = 0;                             //請求単月
+            //decimal cumulativeV = 0;                             //入金単月
+            // Wakamatsu
+            decimal accountsReceivable = 0;                      //未収入金
+
+            // Wakamatsu
+            dgv.Rows[19].Cells[i].Value = "";
+            // Wakamatsu
+
+            //IF(COUNT(F6,F8:F10,F15,F18,F23)>1))
+            if (!checkCellValue(dgv, i))
+            {
+                // Wakamatsu
+                //// SUM($F$12:G12) SUM($F$15:G15) SUM($F$18:G18)
+                //Decimal totalTradingVolumeWk = 0;
+                //Decimal totalCumulativeMWk = 0;
+                //Decimal totalCumulativeVWk = 0;
+
+                //for(int iCnt = 0;iCnt < i + 1;iCnt++)
+                //{
+                //    //出来高累計
+                //    //未成業務
+                //    decimal volUncomp = 0;
+                //    //if ((dgv.Rows[2].Cells[iCnt].Value != null) && (dgv.Rows[2].Cells[iCnt].Value.ToString() != ""))
+                //    if(!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[2].Cells[iCnt].Value)))
+                //        volUncomp = Convert.ToDecimal(dgv.Rows[2].Cells[iCnt].Value);
+
+                //    //未請求
+                //    decimal volClaimRem = 0;
+                //    //if ((dgv.Rows[3].Cells[iCnt].Value != null) && (dgv.Rows[3].Cells[iCnt].Value.ToString() != ""))
+                //    if(!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[3].Cells[iCnt].Value)))
+                //        volClaimRem = Convert.ToDecimal(dgv.Rows[3].Cells[iCnt].Value);
+
+                //    //請求
+                //    decimal volClaim = 0;
+                //    //if ((dgv.Rows[4].Cells[iCnt].Value != null) && (dgv.Rows[4].Cells[iCnt].Value.ToString() != ""))
+                //    if(!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[4].Cells[iCnt].Value)))
+                //        volClaim = Convert.ToDecimal(dgv.Rows[4].Cells[iCnt].Value);
+
+                //    //月計を求める
+                //    tradingVolume = volUncomp + volClaimRem + volClaim;
+                //    totalTradingVolumeWk = totalTradingVolumeWk + tradingVolume;
+
+
+                //    //請求累計
+                //    cumulativeM = 0;
+                //    //if ((dgv.Rows[8].Cells[iCnt].Value != null) && (dgv.Rows[8].Cells[iCnt].Value.ToString().Trim() != ""))
+                //    if(!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[8].Cells[iCnt].Value)))
+                //        cumulativeM = Convert.ToDecimal(dgv.Rows[8].Cells[iCnt].Value);
+                //    totalCumulativeMWk = totalCumulativeMWk + cumulativeM;
+
+                //    //入金累計
+                //    cumulativeV = 0;
+                //    //if ((dgv.Rows[11].Cells[iCnt].Value != null) && (dgv.Rows[11].Cells[iCnt].Value.ToString().Trim() != ""))
+                //    if(!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[11].Cells[iCnt].Value)))
+                //        cumulativeV = Convert.ToDecimal(dgv.Rows[11].Cells[iCnt].Value);
+
+                //    totalCumulativeVWk = totalCumulativeVWk + cumulativeV;
+
+                //}
+
+                ////IF SUM($F12:F$12) > SUM($F15:F$15) → 出来高累計 > 請求累計 
+                //if(totalTradingVolumeWk > totalCumulativeMWk)
+                //{
+                //    //IF(SUM($F12:I$12)-SUM($F$18:I18 ) >= 0 → 出来高累計 - 入金累計 >= 0
+                //    if((totalTradingVolumeWk - totalCumulativeVWk) > 0)
+                //        accountsReceivable = totalTradingVolumeWk - totalCumulativeVWk;
+                //}
+                //else
+                //{
+                //    //IF(SUM($F15:I$15)-SUM($F$18:I18) >= 0 → 請求累計 - 入金累計 >= 0
+                //    if((totalCumulativeMWk - totalCumulativeVWk) > 0)
+                //        accountsReceivable = totalCumulativeMWk - totalCumulativeVWk;
+                //}
+                Calculation calc = new Calculation();
+                // 未収入金算出
+                accountsReceivable = calc.AccountsReceivable(dgv, i, 2, 3, 4, 8, 11);
+                // Wakamatsu
+
+                // Wakamatsu
+                if (accountsReceivable >= 0)
+                // Wakamatsu
+                {
+                    // Wakamatsu 20170308
+                    //dgv.Rows[19].Cells[i].Value = DHandling.DecimaltoStr(accountsReceivable, "#,0");
+                    dgv.Rows[19].Cells[i].Value = MinusConvert(accountsReceivable);
+                    // Wakamatsu 20170308
+                    if ((accountsReceivable == 0) && (buttonSave.Enabled == true))
+                        dgv[i, 19].Style.BackColor = Color.Pink;
+                }
+            }
+        }
+
+
+        //未成業務受入金
+        private void SetUncompBusAcceptM(DataGridView dgv, int i)
+        {
+            dgv.Rows[20].Cells[i].Value = "";//未成業務受入金
+            // Wakamatsu
+            //decimal cumulativeV = 0;//入金単月
+            //decimal tradingVolume = 0;//出来高月計
+            // Wakamatsu
+            decimal uncompBusAcceptM = 0;//未成業務受入金
+
+            //IF(COUNT(F6,F8:F10,F15,F18,F23)>1))
+            if (!checkCellValue(dgv, i))
+            {
+                // Wakamatsu
+                ////SUM($F$18:G18) SUM($F$12:G12)
+                //Decimal totalCumulativeVWk = 0;
+                //Decimal totalTradingVolumeWk = 0;
+
+                //for(int iCnt = 0;iCnt < i + 1;iCnt++)
+                //{
+                //    //入金累計
+                //    cumulativeV = 0;
+                //    //if ((dgv.Rows[11].Cells[iCnt].Value != null) && (dgv.Rows[11].Cells[iCnt].Value.ToString().Trim() != ""))
+                //    if(!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[11].Cells[iCnt].Value)))
+                //        cumulativeV = Convert.ToDecimal(dgv.Rows[11].Cells[iCnt].Value);
+
+                //    totalCumulativeVWk = totalCumulativeVWk + cumulativeV;
+
+                //    //出来高累計
+                //    //未成業務
+                //    decimal volUncomp = 0;
+                //    //if ((dgv.Rows[2].Cells[iCnt].Value != null) && (dgv.Rows[2].Cells[iCnt].Value.ToString() != ""))
+                //    if(!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[2].Cells[iCnt].Value)))
+                //        volUncomp = Convert.ToDecimal(dgv.Rows[2].Cells[iCnt].Value);
+
+                //    //未請求
+                //    decimal volClaimRem = 0;
+                //    //if ((dgv.Rows[3].Cells[iCnt].Value != null) && (dgv.Rows[3].Cells[iCnt].Value.ToString() != ""))
+                //    if(!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[3].Cells[iCnt].Value)))
+                //        volClaimRem = Convert.ToDecimal(dgv.Rows[3].Cells[iCnt].Value);
+
+                //    //請求
+                //    decimal volClaim = 0;
+                //    //if ((dgv.Rows[4].Cells[iCnt].Value != null) && (dgv.Rows[4].Cells[iCnt].Value.ToString() != ""))
+                //    if(!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[4].Cells[iCnt].Value)))
+                //        volClaim = Convert.ToDecimal(dgv.Rows[4].Cells[iCnt].Value);
+
+                //    //月計を求める
+                //    tradingVolume = volUncomp + volClaimRem + volClaim;
+                //    totalTradingVolumeWk = totalTradingVolumeWk + tradingVolume;
+
+                //}
+
+                //SUM($F$15:G15) - SUM($F$12:G12)
+                //uncompBusAcceptM = (totalCumulativeVWk - totalTradingVolumeWk);
+                Calculation calc = new Calculation();
+                uncompBusAcceptM = calc.SubtrahendVol(dgv, i, 11, 2, 3, 4);
+                // Wakamatsu
+
+                if (uncompBusAcceptM > 0)
+                    // Wakamatsu 20170308
+                    //dgv.Rows[20].Cells[i].Value = DHandling.DecimaltoStr(uncompBusAcceptM, "#,0");
+                    dgv.Rows[20].Cells[i].Value = MinusConvert(uncompBusAcceptM);
+                // Wakamatsu 20170308
+            }
+        }
+
+
+        // Wakamatsu 20170308
+        //private void VolumeSave(DataGridView dgv)
+        private bool VolumeSave(DataGridView dgv)
+        {
+            //#######################################################
+            //#######################################################
+            //#######################################################
+            if (!checkReserved()) return false;
+            //#######################################################
+            //#######################################################
+            //#######################################################
+
+            int[] monthArray = new int[] { 7, 8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6 };
+            // Wakamatsu 20170302
+            int DisplyLimit = Array.IndexOf(monthArray, ClosingDate);
+
+            //業務が未選択の場合処理を抜ける
+            if (comboBoxTaskCode.SelectedItem.ToString().Trim() == "")
+                // Wakamatsu 20170308
+                //return;
+                return false;
+
+            //年が未設定の場合処理を抜ける
+            if (comboBoxYear.Text.Trim() == "")
+                // Wakamatsu 20170308
+                //return;
+                return false;
+
+            // Wakamatsu
+            // 未成業務受入金が発生しているのに備考2が空欄の場合処理を抜ける
+            for (int i = 0; i < monthArray.Length; i++)
+            {
+                // Wakamatsu 20170302
+                //if (monthArray[i] == ClosingDate)
+                if (i >= DisplyLimit)
+                // Wakamatsu 20170302
+                {
+                    // Wakamatsu 20170313
+                    // Wakamatsu 20170308
+                    // 最終締め月以降の残請求高を確認する
+                    //if (Convert.ToString(dgv.Rows[14].Cells[i + 1].Value) != "")
+                    //    if (MessageBox.Show(monthArray[i] + "月に残請求高が発生しています。\r\n" +
+                    //                        "保存を行いますか?", "", MessageBoxButtons.YesNo) == DialogResult.No)
+                    //        // Wakamatsu 20170308
+                    //        //return;
+                    //        return false;
+                    // Wakamatsu 20170308
+                    decimal CheckDeposit = 0;
+
+                    if (decimal.TryParse(Convert.ToString(dgv.Rows[14].Cells[i + 1].Value), out CheckDeposit))
+                    {
+                        // Wakamatsu 20170322
+                        //if (CheckDeposit > 0 && this.textBoxNote2.Text == "")
+                        if (CheckDeposit > 0 && Convert.ToString(dgv.Rows[21].Cells[i + 1].Value) == "")
+                        // Wakamatsu 20170322
+                        {
+                            // Wakamatsu 20170322
+                            //MessageBox.Show(monthArray[i] + "月に残請求高が発生しています。\r\n" + 
+                            //                "残請求/未成業務理由を入力してください。");
+                            MessageBox.Show(monthArray[i] + "月に残請求高が発生しています。\r\n" +
+                                            "コメントを入力してください。");
+                            // Wakamatsu 20170322
+                            return false;
+                        }
+                    }
+                    // Wakamatsu 20170313
+
+                    // 最終締め月の未成業務受入金を確認する
+                    // Wakamatsu 20170313
+                    //decimal CheckDeposit = 0;
+                    // 未成業務受入金(請求 - 出来高)
+                    if (decimal.TryParse(Convert.ToString(dgv.Rows[15].Cells[i + 1].Value), out CheckDeposit))
+                    {
+                        // Wakamatsu 20170322
+                        //if (CheckDeposit > 0 && this.textBoxNote2.Text == "")
+                        if (CheckDeposit > 0 && Convert.ToString(dgv.Rows[21].Cells[i + 1].Value) == "")
+                        // Wakamatsu 20170322
+                        {
+                            // Wakamatsu 20170313
+                            //MessageBox.Show("未成業務受入金が発生しています。\r\n" + "備考2を入力してください。");
+                            // Wakamatsu 20170322
+                            //MessageBox.Show(monthArray[i] + "月に未成業務受入金が発生しています。\r\n" + 
+                            //                "残請求/未成業務理由を入力してください。");
+                            MessageBox.Show(monthArray[i] + "月に未成業務受入金が発生しています。\r\n" +
+                                            "コメントを入力してください。");
+                            // Wakamatsu 20170322
+                            // Wakamatsu 20170313
+                            // Wakamatsu 20170308
+                            //return;
+                            return false;
+                        }
+                    }
+
+                    // 未成業務受入金(入金 - 出来高)
+                    if (decimal.TryParse(Convert.ToString(dgv.Rows[20].Cells[i + 1].Value), out CheckDeposit))
+                    {
+                        // Wakamatsu 20170322
+                        //if (CheckDeposit > 0 && this.textBoxNote2.Text == "")
+                        if (CheckDeposit > 0 && Convert.ToString(dgv.Rows[21].Cells[i + 1].Value) == "")
+                        // Wakamatsu 20170322
+                        {
+                            // Wakamatsu 20170313
+                            //MessageBox.Show("未成業務受入金が発生しています。\r\n" + "備考2を入力してください。");
+                            // Wakamatsu 20170322
+                            //MessageBox.Show(monthArray[i] + "月に未成業務受入金が発生しています。\r\n" + 
+                            //                "残請求/未成業務理由を入力してください。");
+                            MessageBox.Show(monthArray[i] + "月に未成業務受入金が発生しています。\r\n" +
+                                            "コメントを入力してください。");
+                            // Wakamatsu 20170322
+                            // Wakamatsu 20170313
+                            // Wakamatsu 20170308
+                            //return;
+                            return false;
+                        }
+                    }
+                }
+            }
+            // Wakamatsu
+
+            bool ret = false;
+            string yearMonth = comboBoxYear.Text;
+            //for (int i = 0; i < selectMonth.Count(); i++)
+            for (int i = 0; i < monthArray.Length; i++)
+            {
+                // Wakamatsu 20170302
+                decimal? WorkDecimal = null;
+                Calculation calc = new Calculation();
+                // Wakamatsu 20170302
+
+                ClassLibrary.VolumeData volume = new ClassLibrary.VolumeData();
+
+                //業務番号
+                volume.TaskCode = comboBoxTaskCode.Text;
+
+                //年月
+                volume.YearMonth = (i < 6) ? Convert.ToInt32(comboBoxYear.Text) * 100 + monthArray[i] : (Convert.ToInt32(comboBoxYear.Text) + 1) * 100 + monthArray[i];
+
+                //受注単月
+                //if ((dgv.Rows[0].Cells[i + 1].Value != null) && (dgv.Rows[0].Cells[i + 1].Value.ToString().Trim() != ""))
+                if (!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[0].Cells[i + 1].Value)))
+                    // Wakamatsu 20170308
+                    //volume.MonthlyVolume = Convert.ToDecimal(dgv.Rows[0].Cells[i + 1].Value);
+                    volume.MonthlyVolume = SignConvert(dgv.Rows[0].Cells[i + 1].Value);
+                // Wakamatsu 20170308
+
+                //出来高未成業務
+                volume.VolUncomp = null;
+                //if ((dgv.Rows[2].Cells[i + 1].Value != null) && (dgv.Rows[2].Cells[i + 1].Value.ToString().Trim() != ""))
+                if (!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[2].Cells[i + 1].Value)))
+                    // Wakamatsu 20170308
+                    //volume.VolUncomp = Convert.ToDecimal(dgv.Rows[2].Cells[i + 1].Value);
+                    volume.VolUncomp = SignConvert(dgv.Rows[2].Cells[i + 1].Value);
+                // Wakamatsu 20170308
+
+                //出来高未請求
+                volume.VolClaimRem = null;
+                //if ((dgv.Rows[3].Cells[i + 1].Value != null) && (dgv.Rows[3].Cells[i + 1].Value.ToString().Trim() != ""))
+                if (!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[3].Cells[i + 1].Value)))
+                    // Wakamatsu 20170308
+                    //volume.VolClaimRem = Convert.ToDecimal(dgv.Rows[3].Cells[i + 1].Value);
+                    volume.VolClaimRem = SignConvert(dgv.Rows[3].Cells[i + 1].Value);
+                // Wakamatsu 20170308
+
+                //出来高請求
+                volume.VolClaim = null;
+                //if ((dgv.Rows[4].Cells[i + 1].Value != null) && (dgv.Rows[4].Cells[i + 1].Value.ToString().Trim() != ""))
+                if (!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[4].Cells[i + 1].Value)))
+                    // Wakamatsu 20170308
+                    //volume.VolClaim = Convert.ToDecimal(dgv.Rows[4].Cells[i + 1].Value);
+                    volume.VolClaim = SignConvert(dgv.Rows[4].Cells[i + 1].Value);
+                // Wakamatsu 20170308
+
+                //入金額
+                volume.VolPaid = null;
+                //if ((dgv.Rows[11].Cells[i + 1].Value != null) && (dgv.Rows[11].Cells[i + 1].Value.ToString().Trim() != ""))
+                if (!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[11].Cells[i + 1].Value)))
+                    // Wakamatsu 20170308
+                    //volume.VolPaid = Convert.ToDecimal(dgv.Rows[11].Cells[i + 1].Value);
+                    volume.VolPaid = SignConvert(dgv.Rows[11].Cells[i + 1].Value);
+                // Wakamatsu 20170308
+
+                //請求単月
+                volume.MonthlyClaim = null;
+                //if ((dgv.Rows[8].Cells[i + 1].Value != null) && (dgv.Rows[8].Cells[i + 1].Value.ToString().Trim() != ""))
+                if (!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[8].Cells[i + 1].Value)))
+                    // Wakamatsu 20170308
+                    //volume.MonthlyClaim = Convert.ToDecimal(dgv.Rows[8].Cells[i + 1].Value);
+                    volume.MonthlyClaim = SignConvert(dgv.Rows[8].Cells[i + 1].Value);
+                // Wakamatsu 20170308
+
+                //請求日
+                volume.ClaimDate = null;
+                //if ((dgv.Rows[10].Cells[i + 1].Value != null) && (dgv.Rows[10].Cells[i + 1].Value.ToString().Trim() != ""))
+                if (!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[10].Cells[i + 1].Value)))
+                    volume.ClaimDate = Convert.ToDateTime(dgv.Rows[10].Cells[i + 1].Value);
+
+                //入金日
+                volume.PaidDate = null;
+                if ((dgv.Rows[13].Cells[i + 1].Value != null) && (dgv.Rows[13].Cells[i + 1].Value.ToString().Trim() != ""))
+                    volume.PaidDate = Convert.ToDateTime(dgv.Rows[13].Cells[i + 1].Value);
+
+                // Wakamatsu 20170302
+                // 未成業務受入金(請求 - 出来高)
+                volume.Deposit1 = null;
+                WorkDecimal = calc.SubtrahendVol(dgv, i + 1, 8, 2, 3, 4);
+                if (WorkDecimal > 0)
+                    volume.Deposit1 = WorkDecimal;
+                // Wakamatsu 20170302
+
+                //原価単月
+                volume.MonthlyCost = null;
+                //if ((dgv.Rows[16].Cells[i + 1].Value != null) && (dgv.Rows[16].Cells[i + 1].Value.ToString().Trim() != ""))
+                if (!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[16].Cells[i + 1].Value)))
+                    // Wakamatsu 20170308
+                    //volume.MonthlyCost = Convert.ToDecimal(dgv.Rows[16].Cells[i + 1].Value);
+                    volume.MonthlyCost = SignConvert(dgv.Rows[16].Cells[i + 1].Value);
+                // Wakamatsu 20170308
+
+                //残請求高金額
+                volume.BalanceClaim = null;
+                // Wakamatsu 20170302
+                WorkDecimal = calc.MinuendVol(dgv, i + 1, 2, 3, 4, 8);
+                //if ((dgv.Rows[14].Cells[i + 1].Value != null) && (dgv.Rows[14].Cells[i + 1].Value.ToString().Trim() != ""))
+                //if (!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[14].Cells[i + 1].Value)))
+                if (WorkDecimal > 0)
+                    //volume.BalanceClaim = Convert.ToDecimal(dgv.Rows[14].Cells[i + 1].Value);
+                    volume.BalanceClaim = WorkDecimal;
+                // Wakamatsu 20170302
+
+                //未収入金額
+                volume.BalanceIncom = null;
+                // Wakamatsu 20170302
+                WorkDecimal = calc.AccountsReceivable(dgv, i + 1, 2, 3, 4, 8, 11);
+                //if ((dgv.Rows[19].Cells[i + 1].Value != null) && (dgv.Rows[19].Cells[i + 1].Value.ToString().Trim() != ""))
+                //if (!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[19].Cells[i + 1].Value)))
+                if (WorkDecimal > 0)
+                    //volume.BalanceIncom = Convert.ToDecimal(dgv.Rows[19].Cells[i + 1].Value);
+                    volume.BalanceIncom = WorkDecimal;
+                // Wakamatsu 20170302
+
+                // Wakamatsu 20170302
+                // 未成業務受入金(請求 - 出来高)
+                volume.Deposit2 = null;
+                // Wakamatsu 20170308
+                //WorkDecimal = calc.SubtrahendVol(dgv, i + 1, 8, 2, 3, 4);
+                WorkDecimal = calc.SubtrahendVol(dgv, i + 1, 11, 2, 3, 4);
+                if (WorkDecimal > 0)
+                    volume.Deposit2 = WorkDecimal;
+                // Wakamatsu 20170302
+
+                //コメント
+                volume.Comment = "";
+                //if ((dgv.Rows[21].Cells[i + 1].Value != null) && (dgv.Rows[21].Cells[i + 1].Value.ToString().Trim() != ""))
+                if (!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[21].Cells[i + 1].Value)))
+                    volume.Comment = Convert.ToString(dgv.Rows[21].Cells[i + 1].Value);
+
+                //備考
+                volume.Note = "";
+                //if ((textBoxNote != null) && (textBoxNote.Text.ToString().Trim() != ""))
+                if (!String.IsNullOrEmpty(Convert.ToString(textBoxNote.Text)))
+                    volume.Note = textBoxNote.Text.ToString();
+
+                // Wakamatsu
+                //備考2
+                // Wakamatsu 20170322
+                //volume.Note2 = "";
+                //if (!String.IsNullOrEmpty(Convert.ToString(textBoxNote2.Text)))
+                //    volume.Note2 = textBoxNote2.Text.ToString();
+                // Wakamatsu 20170322
+                // Wakamatsu
+
+                //業務状況
+                volume.TaskStat = comboBoxTaskState.SelectedIndex;
+
+                //繰越予定額
+                volume.CarryOverPlanned = null;
+                //if ((textBoxCarryOverPlanned != null) && (textBoxCarryOverPlanned.Text.ToString().Trim() != ""))
+                if (!String.IsNullOrEmpty(Convert.ToString(textBoxCarryOverPlanned.Text)))
+                    // Wakamatsu 20170308
+                    //volume.CarryOverPlanned = Convert.ToDecimal(textBoxCarryOverPlanned.Text);
+                    volume.CarryOverPlanned = SignConvert(textBoxCarryOverPlanned.Text);
+                // Wakamatsu 20170308
+
+                //事業所コード
+                volume.OfficeCode = comboBoxOfficeCode.SelectedValue.ToString();
+
+                //部門コード
+                volume.Department = (volume.OfficeCode == "H") ? comboBoxDepartment.SelectedValue.ToString() : "8";
+
+                // Wakamatsu 20170331
+                //VolumeData vd = new VolumeData();
+
+                // Wakamatsu 20170331
+                //if (vd.ExistenceTaskCodeYearMonth(volume.TaskCode, volume.YearMonth, volume.OfficeCode, volume.Department))
+                if (volume.ExistenceTaskCodeYearMonth("D_Volume"))
+                {
+                    //更新
+                    // Wakamatsu 20170331
+                    //ret = vd.UpdateVolume(volume);
+                    ret = volume.UpdateVolume(volume);
+                    // Wakamatsu 20170331
+                }
+                else
+                {
+                    //追加
+                    // Wakamatsu 20170331
+                    //ret = vd.InsertVolume(volume);
+                    ret = volume.InsertVolume(volume);
+                    // Wakamatsu 20170331
+                }
+                if (!ret) break;
+            }
+
+            // Wakamatsu 20170331
+            // 締め月累計格納
+            ret = YearVolumeSave(DisplyLimit + 1);
+
+            string strMassege = (ret) ? "保存しました。" : "保存に失敗しました。";
+            MessageBox.Show(this, strMassege);
+
+            // Wakamatsu 20170308
+
+            //#######################################################
+            //#######################################################
+            //#######################################################
+            releaseExclusive();
+            //#######################################################
+            //#######################################################
+            //#######################################################
+            return ret;
+        }
+
+
+        private void VolumeExcelPrint()
+        {
+            // print 処理
+            // Wakamatsu 20170301
+            //PublishVolume publ = new PublishVolume(Folder.DefaultExcelTemplate("Volume.xlsx"));
+            PublishVolume publ = new PublishVolume(Folder.DefaultExcelTemplate("出来高台帳.xlsx"));
+            // Wakamatsu 20170301
+            publ.ExcelFile("Volume", editPublishData(), dataGridView1);
+        }
+
+
+        //private void VolumePdfPrint()
+        //{
+        //    // print 処理
+        //    PublishVolume publ = new PublishVolume(Folder.DefaultExcelTemplate("Volume.xlsx"));
+        //    PublishData pd = editPublishData();
+        //    publ.CreateExcelForPdf("Volume", pd, dataGridView1);
+
+        //    string sourcePath = Folder.DefaultLocation() + @"\" + pd.vTaskCode + ".xlsx";
+        //    string targetPath = sourcePath.Replace(".xlsx", ".pdf");
+        //    XlFixedFormatType format = XlFixedFormatType.xlTypePDF;
+        //    XlFixedFormatQuality quality = XlFixedFormatQuality.xlQualityStandard;
+        //    Microsoft.Office.Interop.Excel.Application app = null;
+        //    Workbook workbook = null;
+        //    try
+        //    {
+        //        app = new Microsoft.Office.Interop.Excel.Application();
+        //        workbook = app.Workbooks.Open(sourcePath);                  //---ブックを開いて
+        //        workbook.ExportAsFixedFormat(format, targetPath, quality);  //--- PDF形式で出力
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        MessageBox.Show(ex.Message);
+        //    }
+        //    finally
+        //    {
+        //        if (workbook != null)
+        //        {
+        //            System.Runtime.InteropServices.Marshal.ReleaseComObject(workbook);
+        //            workbook = null;
+        //        }
+
+        //        app.Quit();
+        //        System.Runtime.InteropServices.Marshal.ReleaseComObject(app);
+        //        app = null;
+
+        //        if (sourcePath != "")
+        //        {
+        //            if (File.Exists(sourcePath)) File.Delete(sourcePath);
+        //        }
+        //    }
+        //}
+
+
+        private PublishData editPublishData()
+        {
+            PublishData pd = new PublishData();
+
+            pd.vTaskCode = comboBoxTaskCode.Text;                   //業務番号
+            pd.vTaskName = labelTaskName.Text;                      //業務名
+            pd.vSupplierName = labelSupplierName.Text;              //業者名
+            pd.vStartDate = labelStartDate.Text;                    //工期開始
+            pd.vEndDate = labelEndDate.Text;                        //工期終了
+            pd.vOrdersForm = labelOrdersForm.Text;                  //受注形態
+            pd.vCarryOverPlanned = textBoxCarryOverPlanned.Text;    //繰越予定額
+            pd.vYearCompletionHigh = labelYearCompletionHigh.Text;  //年内完工高
+            pd.vContact = labelContact.Text;                        //担当者
+            pd.vClaimform = labelClaimform.Text;                    //請求形態
+            pd.vPayNote = labelPayNote.Text;                        //支払条件
+            pd.vYear = comboBoxYear.Text + "年度" + "－" + comboBoxOfficeCode.Text; //年
+            if (comboBoxDepartment.Visible) pd.vYear = pd.vYear + "－" + comboBoxDepartment.Text;
+            pd.vTaskStat = comboBoxTaskState.Text;                  //業務状態
+            pd.vNote = textBoxNote.Text;
+            // Wakamatsu
+            // Wakamatsu 20170322
+            //pd.vNote2 = textBoxNote2.Text;
+            // Wakamatsu 20170322
+
+            return pd;
+        }
+
+
+        private void NextTaskCode()
+        {
+            releaseExclusive();
+
+            if (comboBoxTaskCode.SelectedIndex < comboBoxTaskCode.Items.Count - 1)
+                comboBoxTaskCode.SelectedIndex++;
+        }
+
+
+        private void BeforeTaskCode()
+        {
+            releaseExclusive();
+
+            if (comboBoxTaskCode.SelectedIndex > 0)
+                comboBoxTaskCode.SelectedIndex--;
+        }
+
+
+        //private static decimal toRegDecimal(string decStr)
+        //{
+        //    return DHandling.ToRegDecimal(decStr);
+        //}
+
+
+        private static string decFormat(decimal decNum)
+        {
+            return DHandling.DecimaltoStr(decNum, "#,0");
+        }
+
+
+        //private static string decPointFormat(decimal decNum)
+        //{
+        //    return DHandling.DecimaltoStr(decNum, "0.00");
+        //}
+
+
+        //private decimal decGetTotalMoney(string taskCode, string officeCode, string yearMonth)
+        //{
+        //    decimal osWkReportMoney = decOsWkReportTotalMoney(taskCode, officeCode, yearMonth);
+        //    decimal accounMoney = decAccountTotalMoney(taskCode, officeCode, yearMonth);
+        //    decimal osPayOffMoney = decOsPayOffTotalMoney(taskCode, officeCode, yearMonth);
+        //    decimal costReportMoney = decCostReportTotalMoney(taskCode, officeCode, yearMonth);
+        //    return osWkReportMoney + accounMoney + osPayOffMoney + costReportMoney;
+        //}
+
+
+        ////外注作業実績のトータル金額
+        //private decimal decOsWkReportTotalMoney(string taskCode, string officeCode, string yearMonth)
+        //{
+        //    decimal osWkReportTotalMoney = 0;
+        //    //if (taskCode.Trim() == "") return osWkReportTotalMoney;
+        //    if (taskCode.Trim() == "") return 0;
+        //    SqlHandling sh = new SqlHandling();
+        //    string sqlStr = "SUM(D_OWD.Quantity * D_OWD.Cost) AS OsWkReportTotalMoney FROM D_OsWkReport AS D_OWR "
+        //            + " LEFT JOIN D_OsWkDetail AS D_OWD ON D_OWR.OsWkReportID = D_OWD.OsWkReportID "
+        //            + " WHERE D_OWR.TaskCode = " + "'" + taskCode + "'"
+        //            + " AND D_OWR.OfficeCode =" + "'" + officeCode + "'"
+        //            + " AND D_OWR.ReportDate LIKE " + "'" + yearMonth + "%" + "'";
+
+        //    System.Data.DataTable dt = sh.SelectFullDescription(sqlStr);
+
+        //    if ((dt != null) && (dt.Rows.Count > 0))
+        //    {
+        //        DataRow dr = dt.Rows[0];
+        //        //外注作業実績のトータル金額
+        //        if (dr["OsWkReportTotalMoney"] != null && dr["OsWkReportTotalMoney"] != DBNull.Value)
+        //            osWkReportTotalMoney = Convert.ToDecimal(dr["OsWkReportTotalMoney"]);
+        //    }
+        //    return osWkReportTotalMoney;
+        //}
+
+
+        ////請求データのトータル金額
+        //private decimal decAccountTotalMoney(string taskCode, string officeCode, string yearMonth)
+        //{
+        //    decimal accountTotalMoney = 0;
+        //    //if (taskCode.Trim() == "") return accountTotalMoney;
+        //    if (taskCode.Trim() == "") return 0;
+        //    SqlHandling sh = new SqlHandling();
+        //    string sqlStr = "SUM(D_AC.Amount) AS AccountTotalMoney FROM D_Account AS D_A "
+        //            + " LEFT JOIN D_AccountCont AS D_AC ON D_A.AccountID = D_AC.AccontID "
+        //            + " WHERE D_AC.TaskCode = " + "'" + taskCode + "'"
+        //            + " AND D_AC.OfficeCode =" + "'" + officeCode + "'"
+        //            + " AND D_AC.RecordedDate LIKE " + "'" + yearMonth + "%" + "'";
+
+        //    System.Data.DataTable dt = sh.SelectFullDescription(sqlStr);
+
+        //    if ((dt != null) && (dt.Rows.Count > 0))
+        //    {
+        //        DataRow dr = dt.Rows[0];
+        //        //請求データのトータル金額
+        //        if (dr["AccountTotalMoney"] != null && dr["AccountTotalMoney"] != DBNull.Value)
+        //            accountTotalMoney = Convert.ToDecimal(dr["AccountTotalMoney"]);
+        //    }
+        //    return accountTotalMoney;
+        //}
+
+
+        ////外注精算データのトータル金額
+        //private decimal decOsPayOffTotalMoney(string taskCode, string officeCode, string yearMonth)
+        //{
+        //    decimal osPayOffTotalMoney = 0;
+        //    //if (taskCode.Trim() == "") return osPayOffTotalMoney;
+        //    if (taskCode.Trim() == "") return 0;
+        //    SqlHandling sh = new SqlHandling();
+        //    string sqlStr = "SUM(D_OPO.Cost) AS OsPayOffTotalMoney "
+        //            + " FROM D_OsPayOff AS D_OPO  "
+        //            + " WHERE D_OPO.TaskCode = " + "'" + taskCode + "'"
+        //            + " AND D_OPO.OfficeCode = " + "'" + officeCode + "'"
+        //            + " AND D_OPO.ReportDate LIKE " + "'" + yearMonth + "%" + "'";
+
+        //    System.Data.DataTable dt = sh.SelectFullDescription(sqlStr);
+
+        //    if ((dt != null) && (dt.Rows.Count > 0))
+        //    {
+        //        DataRow dr = dt.Rows[0];
+        //        //請求データのトータル金額
+        //        if (dr["OsPayOffTotalMoney"] != null && dr["OsPayOffTotalMoney"] != DBNull.Value)
+        //            osPayOffTotalMoney = Convert.ToDecimal(dr["OsPayOffTotalMoney"]);
+        //    }
+        //    return osPayOffTotalMoney;
+        //}
+
+
+        ////原価実績データのトータル金額
+        //private decimal decCostReportTotalMoney(string taskCode, string officeCode, string yearMonth)
+        //{
+        //    decimal costReportTotalMoney = 0;
+        //    //if (taskCode.Trim() == "") return costReportTotalMoney;
+        //    if (taskCode.Trim() == "") return 0;
+        //    SqlHandling sh = new SqlHandling();
+        //    string sqlStr = "SUM(D_CR.Cost) AS CostReportTotalMoney "
+        //            + " FROM D_CostReport AS D_CR "
+        //            + " WHERE D_CR.TaskCode = " + "'" + taskCode + "'"
+        //            + " AND D_CR.OfficeCode = " + "'" + officeCode + "'"
+        //            + " AND D_CR.ReportDate LIKE " + "'" + yearMonth + "%" + "'";
+
+        //    System.Data.DataTable dt = sh.SelectFullDescription(sqlStr);
+
+        //    if ((dt != null) && (dt.Rows.Count > 0))
+        //    {
+        //        DataRow dr = dt.Rows[0];
+        //        //原価実績データのトータル金額
+        //        if (dr["CostReportTotalMoney"] != null && dr["CostReportTotalMoney"] != DBNull.Value)
+        //            costReportTotalMoney = Convert.ToDecimal(dr["CostReportTotalMoney"]);
+        //    }
+        //    return costReportTotalMoney;
+        //}
+
+
+        private void SetOriginalCost()
+        {
+            string taskCode = comboBoxTaskCode.Text;
+            string officeCode = comboBoxOfficeCode.SelectedValue.ToString();
+            string yearMonth = "";
+            string month = "";
+            crdM07 = null;
+            crdM08 = null;
+            crdM09 = null;
+            crdM10 = null;
+            crdM11 = null;
+            crdM12 = null;
+            crdM01 = null;
+            crdM02 = null;
+            crdM03 = null;
+            crdM04 = null;
+            crdM05 = null;
+            crdM06 = null;
+
+            if (taskCode.Trim() == "") return;
+            string strSql = "";
+
+            // Wakamatsu
+            int[] monthArray = new int[] { 0, 7, 8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6 };
+            int DisplyLimit = Array.IndexOf(monthArray, ClosingDate);
+
+            // Wakamatsu
+            //for ( int i = 0; i <= 12; i++ )
+            // Wakamatsu 20170331
+            //for (int i = 0; i < monthArray.Length; i++)
+            for (int i = 1; i < monthArray.Length; i++)
+            // Wakamatsu 20170331
+            {
+                // Wakamatsu 20170331
+                //if (i == 0)
+                //{
+                //    // Wakamatsu 20170328
+                //    //strSql = " AND ReportDate BETWEEN " + "'" + Convert.ToString(Convert.ToInt32(comboBoxYear.Text) - 1) + "-07-01' AND '"
+                //    //+comboBoxYear.Text + "-06-30'";
+                //    strSql = " AND ReportDate <= '" + comboBoxYear.Text + "-06-30'";
+                //    // Wakamatsu 20170328
+                //}
+                //else
+                //{
+                yearMonth = comboBoxYear.Text;
+                int intMonth = i + 6;
+                if (intMonth > 12)
+                {
+                    intMonth = intMonth - 12;
+                    yearMonth = Convert.ToString(Convert.ToInt32(comboBoxYear.Text) + 1);
+                }
+                month = "0" + intMonth.ToString();
+                if (month.Length > 2) month = month.Substring(1, 2);
+
+                yearMonth = yearMonth + "-" + month;
+                strSql = " AND ReportDate LIKE " + "'" + yearMonth + "%'";
+                //}
+                // Wakamatsu 20170331
+
+                // Wakamatsu
+                if (i <= DisplyLimit)
+                {
+                    SqlHandling sh = new SqlHandling();
+
+                    string sqlStr = " SUM(Cost) AS CostReportTotalMony FROM D_CostReport "
+                                    + " WHERE TaskCode = " + "'" + taskCode + "'"
+                                    + " AND OfficeCode = " + "'" + officeCode + "'"
+                                    + strSql;
+                    System.Data.DataTable dt = sh.SelectFullDescription(sqlStr);
+
+                    dataGridView1.Rows[16].Cells[i].Value = "";
+                    if ((dt != null) && (dt.Rows.Count > 0))
+                    {
+                        DataRow dr = dt.Rows[0];
+                        if (dr["CostReportTotalMony"] != null && dr["CostReportTotalMony"] != DBNull.Value)
+                            dataGridView1.Rows[16].Cells[i].Value = DHandling.DecimaltoStr(Convert.ToDecimal(dr["CostReportTotalMony"]), "#,0");
+                        //注文明細を設定
+                        sqlStr = " ReportDate, SlipNo, ItemCode, Item, Unit, UnitPrice, Quantity, Cost, SUM(Cost) AS CostReportTotalMony FROM D_CostReport "
+                                    + " WHERE TaskCode = " + "'" + taskCode + "'"
+                                    + " AND OfficeCode = " + "'" + officeCode + "'"
+                                    + strSql
+                                    + " GROUP BY ReportDate, SlipNo, ItemCode, Item, Unit, UnitPrice, Quantity, Cost "
+                                    + " ORDER BY ReportDate ASC ";
+                        dt = sh.SelectFullDescription(sqlStr);
+
+                        if ((dt != null) && (dt.Rows.Count > 0))
+                        {
+                            CostReportData[] crd = new CostReportData[dt.Rows.Count];
+                            for (int j = 0; j < dt.Rows.Count; j++)
+                            {
+                                CostReportData crdata = new CostReportData();
+                                crd[j] = crdata;
+                                dr = dt.Rows[j];
+                                // Wakamatsu
+                                //if (dr["ReportDate"] != null)
+                                //    crd[j].ReportDate = Convert.ToDateTime(dr["ReportDate"]);
+                                //if (dr["SlipNo"] != null)
+                                //    crd[j].SlipNo = Convert.ToInt32(dr["SlipNo"]);
+                                //if (dr["ItemCode"] != null)
+                                //    crd[j].ItemCode = Convert.ToString(dr["ItemCode"]);
+                                //if (dr["Item"] != null)
+                                //    crd[j].Item = Convert.ToString(dr["Item"]);
+                                //if (dr["Unit"] != null)
+                                //    crd[j].Unit = Convert.ToString(dr["Unit"]);
+                                //if (dr["UnitPrice"] != null)
+                                //    crd[j].UnitPrice = Convert.ToDecimal(dr["UnitPrice"]);
+                                //if (dr["Quantity"] != null)
+                                //    crd[j].Quantity = Convert.ToDecimal(dr["Quantity"]);
+                                //if (dr["Cost"] != null)
+                                //    crd[j].Cost = Convert.ToDecimal(dr["Cost"]);
+                                if (!String.IsNullOrEmpty(Convert.ToString(dr["ReportDate"])))
+                                    crd[j].ReportDate = Convert.ToDateTime(dr["ReportDate"]);
+                                if (!String.IsNullOrEmpty(Convert.ToString(dr["SlipNo"])))
+                                    crd[j].SlipNo = Convert.ToInt32(dr["SlipNo"]);
+                                if (!String.IsNullOrEmpty(Convert.ToString(dr["ItemCode"])))
+                                    crd[j].ItemCode = Convert.ToString(dr["ItemCode"]);
+                                if (!String.IsNullOrEmpty(Convert.ToString(dr["Item"])))
+                                    crd[j].Item = Convert.ToString(dr["Item"]);
+                                if (!String.IsNullOrEmpty(Convert.ToString(dr["Unit"])))
+                                    crd[j].Unit = Convert.ToString(dr["Unit"]);
+                                if (!String.IsNullOrEmpty(Convert.ToString(dr["UnitPrice"])))
+                                    crd[j].UnitPrice = Convert.ToDecimal(dr["UnitPrice"]);
+                                if (!String.IsNullOrEmpty(Convert.ToString(dr["Quantity"])))
+                                    crd[j].Quantity = Convert.ToDecimal(dr["Quantity"]);
+                                if (!String.IsNullOrEmpty(Convert.ToString(dr["Cost"])))
+                                    crd[j].Cost = Convert.ToDecimal(dr["Cost"]);
+                                // Wakamatsu
+                            }
+
+                            switch (month)
+                            {
+                                case "07":
+                                    crdM07 = crd;
+                                    break;
+                                case "08":
+                                    crdM08 = crd;
+                                    break;
+                                case "09":
+                                    crdM09 = crd;
+                                    break;
+                                case "10":
+                                    crdM10 = crd;
+                                    break;
+                                case "11":
+                                    crdM11 = crd;
+                                    break;
+                                case "12":
+                                    crdM12 = crd;
+                                    break;
+                                case "01":
+                                    crdM01 = crd;
+                                    break;
+                                case "02":
+                                    crdM02 = crd;
+                                    break;
+                                case "03":
+                                    crdM03 = crd;
+                                    break;
+                                case "04":
+                                    crdM04 = crd;
+                                    break;
+                                case "05":
+                                    crdM05 = crd;
+                                    break;
+                                case "06":
+                                    crdM06 = crd;
+                                    break;
+                                default:
+                                    break;
+                            }
+                        }
+                    }
+                }
+                // Wakamatsu
+            }
+        }
+
+
+
+
+        private void ScreenDisplayUpdate()
+        {
+            if (iniPro) return;
+
+            // Wakamatsu
+            UiHandling uih = new UiHandling(dataGridView1);
+            uih.DgvRowsBackColorSet(readOnlyRows, rowsBackColorColumns, Color.PaleGreen);
+            // Wakamatsu
+
+            //業務テーブル関連
+            SetTaskInfContents(comboBoxTaskCode.Text, Convert.ToString(comboBoxOfficeCode.SelectedValue),
+                                Convert.ToString(comboBoxOfficeCode.SelectedValue) == "H" ? Convert.ToString(comboBoxDepartment.SelectedValue) : "");
+            ScreenDisplay();
+        }
+
+
+        private void TaskCodeSort()
+        {
+            string selectValue = comboBoxTaskCode.Text.Trim();
+            createTaskCodeCB(comboBoxTaskCode);
+
+            int index = comboBoxTaskCode.FindStringExact(selectValue);
+            comboBoxTaskCode.SelectedIndex = index;
+        }
+
+
+        private void initGridData()
+        {
+            for (int i = 0; i < 13; i++)
+            {
+                cumulativeAry[i] = 0;
+                totalCumulativeAry[i] = 0;
+                volUncompAry[i] = 0;
+                volClaimRemAry[i] = 0;
+                volClaimAry[i] = 0;
+                monthlyTotalAry[i] = 0;
+                totalTradingVolumeAry[i] = 0;
+                OverTime[i] = 0;
+                cumulativeMAry[i] = 0;
+                totalCumulativeMAry[i] = 0;
+                claimDateAry[i] = "";
+                cumulativeVAry[i] = 0;
+                totalCumulativeVAry[i] = 0;
+                paidDateAry[i] = "";
+                cumulativeMCAry[i] = 0;
+                totalCumulativeMCAry[i] = 0;
+                setCostRateAry[i] = 0;
+            }
+        }
+
+
+        // Wakamatsu 20170308
+        //private void TotalCumulativeOverCheck(DataGridView dgv, int rowPos, int colPos)
+        //{
+        //    //受注額を越えたかのチェック
+        //    decimal totalCumulative = 0;     //受注累計
+        //    decimal totalVolume = 0;         //比較する累計
+        //    int month = colPos + 6;
+        //    if (month > 12) month -= 12;
+
+        //    if (!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[1].Cells[colPos].Value)))
+        //        totalCumulative = Convert.ToDecimal(dgv.Rows[1].Cells[colPos].Value);
+        //    if (!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[rowPos].Cells[colPos].Value)))
+        //        totalVolume = Convert.ToDecimal(dgv.Rows[rowPos].Cells[colPos].Value);
+
+        //    dgv.Rows[rowPos].Cells[colPos].Style.BackColor = Color.PaleGreen;
+        //    if (totalVolume > totalCumulative)
+        //        dgv.Rows[rowPos].Cells[colPos].Style.BackColor = Color.Red;
+        //}
+        // Wakamatsu 20170308
+
+
+        /// <summary>
+        /// セルの値確認
+        /// </summary>
+        /// <param name="dgv"> 確認対象データグリッドビュー</param>
+        /// <param name="idx">　セルのインデックス</param>
+        /// <returns>　true:すべて空白</returns>
+        /// <returns>　false:どこかに値がある</returns>
+        private bool checkCellValue(DataGridView dgv, int idx)
+        {
+            //if (((dgv.Rows[0].Cells[idx].Value == null) || (dgv.Rows[0].Cells[idx].Value.ToString() == "")) &&   //受注 単月
+            //    ((dgv.Rows[2].Cells[idx].Value == null) || (dgv.Rows[2].Cells[idx].Value.ToString() == "")) &&   //出来高 未成業務
+            //    ((dgv.Rows[3].Cells[idx].Value == null) || (dgv.Rows[3].Cells[idx].Value.ToString() == "")) &&   //出来高 未請求
+            //    ((dgv.Rows[4].Cells[idx].Value == null) || (dgv.Rows[4].Cells[idx].Value.ToString() == "")) &&   //出来高 請求
+            //    ((dgv.Rows[8].Cells[idx].Value == null) || (dgv.Rows[8].Cells[idx].Value.ToString() == "")) &&   //請求 単月
+            //    ((dgv.Rows[11].Cells[idx].Value == null) || (dgv.Rows[11].Cells[idx].Value.ToString() == "")) &&  //入金 単月
+            //    ((dgv.Rows[16].Cells[idx].Value == null) || (dgv.Rows[16].Cells[idx].Value.ToString() == "")))    //原価 単月
+            //{
+            //    return true;
+            //}
+            //return false;
+            int[] rIdxArray = new int[] { 0, 2, 3, 4, 8, 11, 16 };
+            for (int i = 0; i < rIdxArray.Length; i++)
+            {
+                if (!String.IsNullOrEmpty(Convert.ToString(dgv.Rows[rIdxArray[i]].Cells[idx].Value))) return false;
+            }
+
+            return true;
+        }
+
+        // Wakamatsu 20170308
+        /// <summary>
+        /// "-" → "△"変換
+        /// </summary>
+        /// <param name="TargetValue">対象値</param>
+        /// <returns>変換結果</returns>
+        private string MinusConvert(object TargetValue)
+        {
+            decimal WorkDecimal = 0;
+            string WorkString = Convert.ToString(TargetValue);
+
+            if (WorkString != "")
+            {
+                // "-" → "△"コンバート
+                Decimal.TryParse(WorkString, out WorkDecimal);
+                if (WorkDecimal < 0)
+                    return "△" + (WorkDecimal * -1).ToString("#,0");
+                else
+                    return WorkDecimal.ToString("#,0");
+            }
+            return "";
+        }
+
+        /// <summary>
+        /// "△" → "-"変換
+        /// </summary>
+        /// <param name="TargetValue">対象値</param>
+        /// <returns>変換結果</returns>
+        private decimal SignConvert(object TargetValue)
+        {
+            decimal WorkDecimal = 0;
+            string WorkString = Convert.ToString(TargetValue);
+
+            if (WorkString != "")
+            {
+                // "△" → "-"コンバート
+                if (WorkString.Substring(0, 1) == "△")
+                {
+                    Decimal.TryParse(WorkString.Substring(1), out WorkDecimal);
+                    return WorkDecimal * -1;
+                }
+                else
+                {
+                    Decimal.TryParse(WorkString, out WorkDecimal);
+                    return WorkDecimal;
+                }
+            }
+            return 0;
+        }
+        // Wakamatsu 20170308
+
+        // Wakamatsu 20170331
+        /// <summary>
+        /// 来年度用前年データ格納
+        /// </summary>
+        /// <param name="ClosingYear">締め月</param>
+        /// <returns></returns>
+        private bool YearVolumeSave(int ClosingYear)
+        {
+            decimal? WorkDecimal = null;
+            Calculation calc = new Calculation();
+
+            VolumeData volume = new VolumeData();
+
+            //業務番号
+            volume.TaskCode = comboBoxTaskCode.Text;
+
+            //年度
+            volume.YearMonth = Convert.ToInt32(comboBoxYear.Text);
+
+            //受注累計
+            volume.MonthlyVolume = totalCumulativeAry[ClosingYear];
+
+            volume.VolUncomp = 0;
+            volume.VolClaimRem = 0;
+            volume.VolClaim = 0;
+            for (int i = 0; i <= ClosingYear; i++)
+            {
+                //出来高未成業務累計
+                volume.VolUncomp += SignConvert(this.dataGridView1.Rows[2].Cells[i].Value);
+
+                //出来高未請求
+                volume.VolClaimRem += SignConvert(this.dataGridView1.Rows[3].Cells[i].Value);
+
+                //出来高請求
+                volume.VolClaim += SignConvert(this.dataGridView1.Rows[4].Cells[i].Value);
+            }
+
+            //請求累計
+            volume.MonthlyClaim = totalCumulativeMAry[ClosingYear];
+
+            //請求日
+            if (!String.IsNullOrEmpty(Convert.ToString(this.dataGridView1.Rows[10].Cells[ClosingYear].Value)))
+                volume.ClaimDate = Convert.ToDateTime(this.dataGridView1.Rows[10].Cells[ClosingYear].Value);
+
+            //入金累計
+            volume.VolPaid = totalCumulativeVAry[ClosingYear];
+
+            //入金日
+            if (!String.IsNullOrEmpty(Convert.ToString(this.dataGridView1.Rows[13].Cells[ClosingYear].Value)))
+                volume.PaidDate = Convert.ToDateTime(this.dataGridView1.Rows[13].Cells[ClosingYear].Value);
+
+            //残請求高金額
+            WorkDecimal = calc.MinuendVol(this.dataGridView1, ClosingYear, 2, 3, 4, 8);
+            if (WorkDecimal > 0)
+                volume.BalanceClaim = WorkDecimal;
+
+            // 未成業務受入金(請求 - 出来高)
+            WorkDecimal = calc.SubtrahendVol(this.dataGridView1, ClosingYear, 8, 2, 3, 4);
+            if (WorkDecimal > 0)
+                volume.Deposit1 = WorkDecimal;
+
+            //原価累計
+            volume.MonthlyCost = totalCumulativeMCAry[ClosingYear];
+
+            //未収入金額
+            WorkDecimal = calc.AccountsReceivable(this.dataGridView1, ClosingYear, 2, 3, 4, 8, 11);
+            if (WorkDecimal > 0)
+                volume.BalanceIncom = WorkDecimal;
+
+            // 未成業務受入金(入金 - 出来高)
+            WorkDecimal = calc.SubtrahendVol(this.dataGridView1, ClosingYear, 11, 2, 3, 4);
+            if (WorkDecimal > 0)
+                volume.Deposit2 = WorkDecimal;
+
+            //事業所コード
+            volume.OfficeCode = comboBoxOfficeCode.SelectedValue.ToString();
+
+            //部門コード
+            volume.Department = (volume.OfficeCode == "H") ? comboBoxDepartment.SelectedValue.ToString() : "8";
+
+            if (volume.ExistenceTaskCodeYearMonth("D_YearVolume"))
+                //更新
+                return volume.UpdateYearVolume(volume);
+            else
+                //追加
+                return volume.InsertYearVolume(volume);
+        }
+        // Wakamatsu 20170331
+
+
+        private bool checkExclusive()
+        {
+            Exclusive excl = new Exclusive();
+            if( excl.CheckAndRegistered( "FormVolume", null, comboBoxTaskCode.Text, hp.MemberCode ) )
+            {
+                return true;
+            }
+            else
+            {
+                exclusiveMessage( excl.UserName );
+                return false;
+            }
+        }
+
+        private bool checkReserved()
+        {
+            Exclusive excl = new Exclusive();
+            if( !excl.CheckRegisterUser( "FormVolume", hp.MemberCode ) )
+            { 
+                exclusiveMessage( excl.UserName );
+                return false;
+            }
+            return true;
+        }
+
+        private bool releaseExclusive()
+        {
+            Exclusive excl = new Exclusive();
+            return excl.Unregister( "FormVolume", hp.MemberCode );
+        }
+
+
+        private void exclusiveMessage(string memberCode)
+        {
+            string showMes = "業務番号：" + comboBoxTaskCode.Text + " は、";
+            MembersData md = new MembersData();
+            if( string.IsNullOrEmpty( md.SelectMemberName( memberCode ) ) )
+            {
+                showMes += "他の方が使用中です。更新できません。";
+            }
+            else
+            {
+                showMes += md.SelectMemberName( memberCode ) + "さんが使用中です。更新できません。";
+            }
+
+            MessageBox.Show( showMes );
+        }
+
+    }
+}

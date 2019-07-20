@@ -1,0 +1,16 @@
+Z:\U32X\_週報優先プログラム\CostVolumeOptD\List\obj\Debug\List.Properties.Resources.resources
+Z:\U32X\_週報優先プログラム\CostVolumeOptD\List\obj\Debug\List.csproj.GenerateResource.Cache
+Z:\U32X\_週報優先プログラム\CostVolumeOptD\List\bin\Debug\List.exe.config
+Z:\U32X\_週報優先プログラム\CostVolumeOptD\List\bin\Debug\List.exe
+Z:\U32X\_週報優先プログラム\CostVolumeOptD\List\bin\Debug\List.pdb
+Z:\U32X\_週報優先プログラム\CostVolumeOptD\List\bin\Debug\ClassLibrary.dll
+Z:\U32X\_週報優先プログラム\CostVolumeOptD\List\bin\Debug\ClosedXML.dll
+Z:\U32X\_週報優先プログラム\CostVolumeOptD\List\bin\Debug\DocumentFormat.OpenXml.dll
+Z:\U32X\_週報優先プログラム\CostVolumeOptD\List\bin\Debug\ClassLibrary.pdb
+Z:\U32X\_週報優先プログラム\CostVolumeOptD\List\bin\Debug\ClosedXML.xml
+Z:\U32X\_週報優先プログラム\CostVolumeOptD\List\obj\Debug\List.exe
+Z:\U32X\_週報優先プログラム\CostVolumeOptD\List\obj\Debug\List.pdb
+Z:\U32X\_週報優先プログラム\CostVolumeOptD\List\obj\Debug\List.csprojResolveAssemblyReference.cache
+Z:\U32X\_週報優先プログラム\CostVolumeOptD\List\obj\Debug\List.FormTaskNameList.resources
+Z:\U32X\_週報優先プログラム\CostVolumeOptD\List\obj\Debug\List.FormItemList.resources
+Z:\U32X\_週報優先プログラム\CostVolumeOptD\List\obj\Debug\List.FormTaskEntry.resources

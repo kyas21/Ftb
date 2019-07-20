@@ -1,0 +1,24 @@
+﻿<?xml version='1.0' encoding='utf-8'?>
+<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="CostProc" GeneratedClassName="TaskSummary">
+  <Profiles />
+  <Settings>
+    <Setting Name="Office" Type="System.String" Scope="User">
+      <Value Profile="(Default)">H</Value>
+    </Setting>
+    <Setting Name="Department" Type="System.String" Scope="User">
+      <Value Profile="(Default)">2</Value>
+    </Setting>
+    <Setting Name="FR" Type="System.String" Scope="User">
+      <Value Profile="(Default)">2017,02,01</Value>
+    </Setting>
+    <Setting Name="TO" Type="System.String" Scope="User">
+      <Value Profile="(Default)">2017,02,28</Value>
+    </Setting>
+    <Setting Name="TaskCode" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="OfficeName" Type="System.String" Scope="User">
+      <Value Profile="(Default)">本社</Value>
+    </Setting>
+  </Settings>
+</SettingsFile>

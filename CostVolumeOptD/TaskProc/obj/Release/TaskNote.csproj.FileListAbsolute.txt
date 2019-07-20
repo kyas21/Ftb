@@ -1,0 +1,16 @@
+D:\CostVolumeOptD\TaskNote\bin\Release\TaskNote.exe.config
+D:\CostVolumeOptD\TaskNote\bin\Release\TaskNote.exe
+D:\CostVolumeOptD\TaskNote\bin\Release\TaskNote.pdb
+D:\CostVolumeOptD\TaskNote\bin\Release\ClassLibrary.dll
+D:\CostVolumeOptD\TaskNote\bin\Release\SummaryTable.exe
+D:\CostVolumeOptD\TaskNote\bin\Release\ClosedXML.dll
+D:\CostVolumeOptD\TaskNote\bin\Release\DocumentFormat.OpenXml.dll
+D:\CostVolumeOptD\TaskNote\bin\Release\ClassLibrary.pdb
+D:\CostVolumeOptD\TaskNote\bin\Release\SummaryTable.pdb
+D:\CostVolumeOptD\TaskNote\bin\Release\ClosedXML.xml
+D:\CostVolumeOptD\TaskNote\obj\Release\TaskNote.csprojResolveAssemblyReference.cache
+D:\CostVolumeOptD\TaskNote\obj\Release\TaskNote.FormTaskNote.resources
+D:\CostVolumeOptD\TaskNote\obj\Release\TaskNote.Properties.Resources.resources
+D:\CostVolumeOptD\TaskNote\obj\Release\TaskNote.csproj.GenerateResource.Cache
+D:\CostVolumeOptD\TaskNote\obj\Release\TaskNote.exe
+D:\CostVolumeOptD\TaskNote\obj\Release\TaskNote.pdb

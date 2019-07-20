@@ -1,0 +1,14 @@
+D:\CostVolumeOptD\Volume\bin\Release\Volume.exe.config
+D:\CostVolumeOptD\Volume\bin\Release\Volume.exe
+D:\CostVolumeOptD\Volume\bin\Release\Volume.pdb
+D:\CostVolumeOptD\Volume\bin\Release\ClassLibrary.dll
+D:\CostVolumeOptD\Volume\bin\Release\ClosedXML.dll
+D:\CostVolumeOptD\Volume\bin\Release\DocumentFormat.OpenXml.dll
+D:\CostVolumeOptD\Volume\bin\Release\ClassLibrary.pdb
+D:\CostVolumeOptD\Volume\bin\Release\ClosedXML.xml
+D:\CostVolumeOptD\Volume\obj\Release\Volume.csprojResolveAssemblyReference.cache
+D:\CostVolumeOptD\Volume\obj\Release\Volume.FormVolume.resources
+D:\CostVolumeOptD\Volume\obj\Release\Volume.Properties.Resources.resources
+D:\CostVolumeOptD\Volume\obj\Release\Volume.csproj.GenerateResource.Cache
+D:\CostVolumeOptD\Volume\obj\Release\Volume.exe
+D:\CostVolumeOptD\Volume\obj\Release\Volume.pdb

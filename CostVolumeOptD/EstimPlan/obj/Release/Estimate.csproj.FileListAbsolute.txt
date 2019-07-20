@@ -1,0 +1,17 @@
+D:\CostVolumeOptD\Estimate\bin\Release\Estimate.exe.config
+D:\CostVolumeOptD\Estimate\bin\Release\Estimate.exe
+D:\CostVolumeOptD\Estimate\bin\Release\Estimate.pdb
+D:\CostVolumeOptD\Estimate\bin\Release\ClassLibrary.dll
+D:\CostVolumeOptD\Estimate\bin\Release\PrintOut.exe
+D:\CostVolumeOptD\Estimate\bin\Release\ClosedXML.dll
+D:\CostVolumeOptD\Estimate\bin\Release\DocumentFormat.OpenXml.dll
+D:\CostVolumeOptD\Estimate\bin\Release\ClassLibrary.pdb
+D:\CostVolumeOptD\Estimate\bin\Release\PrintOut.pdb
+D:\CostVolumeOptD\Estimate\bin\Release\ClosedXML.xml
+D:\CostVolumeOptD\Estimate\obj\Release\Estimate.csprojResolveAssemblyReference.cache
+D:\CostVolumeOptD\Estimate\obj\Release\Estimate.FormEstimate.resources
+D:\CostVolumeOptD\Estimate\obj\Release\Estimate.FormItemList.resources
+D:\CostVolumeOptD\Estimate\obj\Release\Estimate.Properties.Resources.resources
+D:\CostVolumeOptD\Estimate\obj\Release\Estimate.csproj.GenerateResource.Cache
+D:\CostVolumeOptD\Estimate\obj\Release\Estimate.exe
+D:\CostVolumeOptD\Estimate\obj\Release\Estimate.pdb

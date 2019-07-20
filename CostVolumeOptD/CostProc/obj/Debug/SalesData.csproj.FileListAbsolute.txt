@@ -1,0 +1,13 @@
+C:\Users\Norikazu\Documents\Visual Studio 2015\Projects\CostVolumeOptD\SalesData\bin\Debug\SalesData.exe.config
+C:\Users\Norikazu\Documents\Visual Studio 2015\Projects\CostVolumeOptD\SalesData\bin\Debug\SalesData.exe
+C:\Users\Norikazu\Documents\Visual Studio 2015\Projects\CostVolumeOptD\SalesData\bin\Debug\SalesData.pdb
+C:\Users\Norikazu\Documents\Visual Studio 2015\Projects\CostVolumeOptD\SalesData\obj\Debug\SalesData.FormSalesData.resources
+C:\Users\Norikazu\Documents\Visual Studio 2015\Projects\CostVolumeOptD\SalesData\obj\Debug\SalesData.Properties.Resources.resources
+C:\Users\Norikazu\Documents\Visual Studio 2015\Projects\CostVolumeOptD\SalesData\obj\Debug\SalesData.csproj.GenerateResource.Cache
+C:\Users\Norikazu\Documents\Visual Studio 2015\Projects\CostVolumeOptD\SalesData\obj\Debug\SalesData.exe
+C:\Users\Norikazu\Documents\Visual Studio 2015\Projects\CostVolumeOptD\SalesData\obj\Debug\SalesData.pdb
+C:\Users\Norikazu\Documents\Visual Studio 2015\Projects\CostVolumeOptD\SalesData\bin\Debug\ClassLibrary.dll
+C:\Users\Norikazu\Documents\Visual Studio 2015\Projects\CostVolumeOptD\SalesData\bin\Debug\ClassLibrary.pdb
+C:\Users\Norikazu\Documents\Visual Studio 2015\Projects\CostVolumeOptD\SalesData\obj\Debug\SalesData.csprojResolveAssemblyReference.cache
+C:\Users\Norikazu\Documents\Visual Studio 2015\Projects\CostVolumeOptD\SalesData\obj\Debug\SalesData.FormSalesSchedule.resources
+C:\Users\Norikazu\Documents\Visual Studio 2015\Projects\CostVolumeOptD\SalesData\obj\Debug\SalesData.FormSalesSummaryTable.resources
